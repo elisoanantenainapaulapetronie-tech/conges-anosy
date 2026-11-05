@@ -7,9 +7,7 @@
     <meta name="referrer" content="no-referrer">
     <title>@yield('titre') — Congés Anosy</title>
     <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+    @include('partials.polices')
     <link rel="stylesheet" href="{{ asset('css/anosy.css') }}">
 </head>
 <body>

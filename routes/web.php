@@ -26,6 +26,10 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::post(
+    '/session/prolonger',
+    fn () => response()->noContent()
+)->name('session.prolonger');
     Route::get('/accueil', [AccueilController::class, 'index'])->name('accueil');
     Route::post('/deconnexion', [ConnexionController::class, 'deconnecter'])->name('deconnexion');
 

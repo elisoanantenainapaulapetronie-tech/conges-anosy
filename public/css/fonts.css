@@ -1,0 +1,5 @@
+/* Polices hébergées sur le serveur (soutenance sans Internet).
+   Deux fichiers à déposer dans public/fonts/ : voir LISEZMOI_LOT0.txt.
+   Si un fichier manque, le navigateur utilise Segoe UI ou Georgia : l'interface reste correcte. */
+@font-face{font-family:"Public Sans";font-style:normal;font-weight:100 900;font-display:swap;src:url("../fonts/PublicSans-Variable.ttf") format("truetype")}
+@font-face{font-family:"Source Serif 4";font-style:normal;font-weight:200 900;font-display:swap;src:url("../fonts/SourceSerif4-Variable.ttf") format("truetype")}

@@ -5,10 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('titre') — Congés Anosy</title>
     <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+   <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@yield('titre') — Congés Anosy</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
+   @include('partials.polices')
     <link rel="stylesheet" href="{{ asset('css/anosy.css') }}">
+</head>
 </head>
 <body>
 @php
@@ -71,5 +75,6 @@
     </div>
 </div>
 <script src="{{ asset('js/app.js') }}" defer></script>
+@include('partials.session')
 </body>
 </html>

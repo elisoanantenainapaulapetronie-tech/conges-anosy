@@ -1,0 +1,4 @@
+/* Avertissement de fin de session (couleurs tirées de anosy.css) */
+.session-alerte{position:fixed;right:16px;bottom:16px;z-index:60;display:flex;flex-wrap:wrap;align-items:center;gap:12px;max-width:26rem;padding:14px 16px;background:#FBF1C9;color:#4B3A00;border:1px solid #E9B500;border-left:5px solid #E9B500;border-radius:8px;box-shadow:0 6px 24px rgba(6,32,22,.25);font-size:.93rem}
+.session-alerte[hidden]{display:none}
+.session-alerte p{margin:0;flex:1 1 14rem}
