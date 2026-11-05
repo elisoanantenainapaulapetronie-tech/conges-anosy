@@ -10,16 +10,16 @@ SET NAMES utf8mb4;
 -- Agents (l'ordre compte : un responsable doit exister avant ses agents).
 -- 1 Chef de Region -> 2 SG -> 3 Directeur DAF -> 4 Cheffe Comptabilite -> 5 Hery
 -- 2 SG -> 8 Directeur DAG -> 7 Cheffe RH -> 6 Tahina (RH gestionnaire)
-INSERT INTO agents (id, matricule, nom, prenoms, sexe, telephone, email, fonction_id, structure_id, responsable_id, rattachement, date_entree)
+INSERT INTO agents (id, identifiant, matricule, nom, prenoms, sexe, telephone, email, fonction_id, structure_id, responsable_id, rattachement, date_entree)
 VALUES
- (1, 'CR-0001',  'RAKOTONIRINA', 'Faly',   'M', '0340000001', NULL,                      (SELECT id FROM fonctions WHERE libelle='Chef de Region'),      1,  NULL, 'region', '2015-01-05'),
- (2, 'SG-0001',  'RAZAFY',       'Rivo',   'M', '0340000002', NULL,                      (SELECT id FROM fonctions WHERE libelle='Secretaire General'),  4,  1,    'sg',     '2012-02-01'),
- (3, 'DIR-0011', 'RANDRIA',      'Jean',   'M', '0340000003', 'jean.randria@exemple.mg', (SELECT id FROM fonctions WHERE libelle='Directeur'),          11, 2,    'sg',     '2010-06-01'),
- (4, 'AGT-0104', 'ANDRIAMASY',   'Lalao',  'F', '0340000004', 'lalao.andriamasy@exemple.mg', (SELECT id FROM fonctions WHERE libelle='Chef de service'), 12, 3,    'sg',     '2013-09-15'),
- (5, 'AGT-0231', 'RAKOTOARISOA', 'Hery',   'M', '0340000005', NULL,                      (SELECT id FROM fonctions WHERE libelle='Attache administratif'), 12, 4,   'sg',     '2019-03-01'),
- (8, 'DIR-0005', 'RASOLO',       'Mamy',   'M', '0340000008', NULL,                      (SELECT id FROM fonctions WHERE libelle='Directeur'),          5,  2,    'sg',     '2011-04-01'),
- (7, 'AGT-0050', 'RAVELO',       'Soa',    'F', '0340000007', 'soa.ravelo@exemple.mg',   (SELECT id FROM fonctions WHERE libelle='Chef de service'),    6,  8,    'sg',     '2014-01-10'),
- (6, 'AGT-0188', 'RABE',         'Tahina', 'M', '0340000006', 'tahina.rabe@exemple.mg',  (SELECT id FROM fonctions WHERE libelle='Assistant'),          6,  7,    'sg',     '2018-07-02');
+ (1, 'CR-0001', 'CR-0001',  'RAKOTONIRINA', 'Faly',   'M', '0340000001', NULL,                      (SELECT id FROM fonctions WHERE libelle='Chef de Region'),      1,  NULL, 'region', '2015-01-05'),
+ (2, 'SG-0001', 'SG-0001',  'RAZAFY',       'Rivo',   'M', '0340000002', NULL,                      (SELECT id FROM fonctions WHERE libelle='Secretaire General'),  4,  1,    'sg',     '2012-02-01'),
+ (3, 'DIR-0011', 'DIR-0011', 'RANDRIA',      'Jean',   'M', '0340000003', 'jean.randria@exemple.mg', (SELECT id FROM fonctions WHERE libelle='Directeur'),          11, 2,    'sg',     '2010-06-01'),
+ (4, 'AGT-0104', 'AGT-0104', 'ANDRIAMASY',   'Lalao',  'F', '0340000004', 'lalao.andriamasy@exemple.mg', (SELECT id FROM fonctions WHERE libelle='Chef de service'), 12, 3,    'sg',     '2013-09-15'),
+ (5, 'AGT-0231', 'AGT-0231', 'RAKOTOARISOA', 'Hery',   'M', '0340000005', NULL,                      (SELECT id FROM fonctions WHERE libelle='Attache administratif'), 12, 4,   'sg',     '2019-03-01'),
+ (8, 'DIR-0005', 'DIR-0005', 'RASOLO',       'Mamy',   'M', '0340000008', NULL,                      (SELECT id FROM fonctions WHERE libelle='Directeur'),          5,  2,    'sg',     '2011-04-01'),
+ (7, 'AGT-0050', 'AGT-0050', 'RAVELO',       'Soa',    'F', '0340000007', 'soa.ravelo@exemple.mg',   (SELECT id FROM fonctions WHERE libelle='Chef de service'),    6,  8,    'sg',     '2014-01-10'),
+ (6, 'AGT-0188', 'AGT-0188', 'RABE',         'Tahina', 'M', '0340000006', 'tahina.rabe@exemple.mg',  (SELECT id FROM fonctions WHERE libelle='Assistant'),          6,  7,    'sg',     '2018-07-02');
 
 -- Habilitations : tout le monde est Agent ; ces lignes ajoutent un role.
 -- (attribuee_par NULL = premier compte cree par script ; ensuite par Soa RAVELO, RH responsable)
