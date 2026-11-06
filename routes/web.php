@@ -34,5 +34,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/deconnexion', [ConnexionController::class, 'deconnecter'])->name('deconnexion');
 
     // Exemple de route protégée par rôle (à remplacer par l'espace RH) :
-    Route::get('/rh', fn () => 'Espace RH')->middleware('role:rh_gestionnaire,rh_responsable')->name('rh');
+    require __DIR__.'/rh.php';
+
 });

@@ -1,0 +1,89 @@
+/* Espace RH (lot 1). Complète anosy.css : mêmes variables, mêmes composants. */
+
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.discret{color:var(--encre-douce);font-size:.86rem;font-weight:400}
+.bloc{display:block}
+.requis{color:var(--erreur)}
+
+/* Onglets */
+.rh-onglets{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 22px;padding:0;list-style:none;border-bottom:1px solid var(--bord)}
+.rh-onglets a{display:block;margin-bottom:-1px;padding:10px 16px;border-bottom:3px solid transparent;font-weight:600;color:var(--encre-douce);text-decoration:none}
+.rh-onglets a:hover{color:var(--vert)}
+.rh-onglets a[aria-current="page"]{color:var(--vert-profond);border-bottom-color:var(--or)}
+
+/* En-tête avec bouton d'action */
+.entete--action{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px 24px}
+
+/* Alertes, boutons, champs */
+.alerte--erreur{background:var(--erreur-pale);border-color:var(--erreur);color:#7A1A12}
+.bouton--ligne{width:auto;height:44px;margin:0;padding:0 18px}
+.bouton--danger{color:var(--erreur);background:#fff;border:1.5px solid var(--erreur);box-shadow:none}
+.bouton--danger:hover{background:var(--erreur-pale)}
+.bouton--ligne.bouton--discret{height:44px}
+.lien-bouton{padding:0;font:inherit;font-weight:600;color:var(--erreur);background:none;border:0;cursor:pointer;text-decoration:underline}
+.champ select,.champ textarea{width:100%;min-height:46px;padding:0 14px;font:inherit;color:inherit;background:#fff;border:1.5px solid var(--bord-fort);border-radius:var(--rayon)}
+.champ select:hover{border-color:var(--encre-douce)}
+.champ select:focus{outline:none;border-color:var(--vert);box-shadow:0 0 0 3px rgba(15,107,69,.25)}
+.champ--erreur select{border-color:var(--erreur);background:var(--erreur-pale)}
+.grille-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0 22px}
+.grille-form .champ:first-child{margin-top:0}
+.grille-form__large{grid-column:1/-1}
+.actions-formulaire{display:flex;flex-wrap:wrap;gap:12px;margin:6px 0 30px}
+.actions-ligne{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+.actions-ligne form{margin:0}
+.sous-titre{margin:26px 0 4px;font-size:1rem;font-weight:700}
+.panneau .bouton--ligne + .bouton--ligne{margin-left:0}
+.panneau form > .bouton--ligne{margin-top:22px}
+
+/* Tuiles du tableau de bord */
+.tuiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:22px}
+.tuile{display:block;padding:18px 20px;color:inherit;text-decoration:none;background:#fff;border:1px solid var(--bord);border-top:4px solid var(--vert);border-radius:12px}
+.tuile:hover{border-color:var(--vert);box-shadow:0 2px 10px rgba(10,59,42,.1)}
+.tuile--info{border-top-color:var(--or)}
+.tuile--alerte{border-top-color:var(--rouge)}
+.tuile__chiffre{display:block;font-family:var(--serif);font-size:2.4rem;font-weight:700;line-height:1;color:var(--vert-profond)}
+.tuile__libelle{display:block;margin-top:8px;font-size:.9rem;font-weight:600;color:var(--encre-douce)}
+.liste-simple{display:grid;gap:0;margin:0;padding:0;list-style:none}
+.liste-simple li{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px;padding:10px 0;border-bottom:1px solid var(--bord)}
+.liste-simple li:last-child{border-bottom:0}
+
+/* Filtres */
+.outils{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 16px;align-items:end;margin-bottom:18px;padding:0 18px 18px;background:#fff;border:1px solid var(--bord);border-radius:12px}
+.outils .bouton{margin-top:18px}
+
+/* Tableaux */
+.panneau--table{padding:0;overflow:hidden}
+.table-enveloppe{overflow-x:auto}
+.tableau{width:100%;border-collapse:collapse;font-size:.93rem}
+.tableau th{padding:12px 16px;text-align:left;font-size:.8rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:var(--encre-douce);background:#F6F9F7;border-bottom:1px solid var(--bord);white-space:nowrap}
+.tableau td{padding:12px 16px;vertical-align:top;border-bottom:1px solid var(--bord)}
+.tableau tbody tr:last-child td{border-bottom:0}
+.tableau tbody tr:hover{background:#FAFCFB}
+.panneau:not(.panneau--table) .tableau th:first-child,.panneau:not(.panneau--table) .tableau td:first-child{padding-left:0}
+.ligne-passee{opacity:.62}
+.retrait{display:inline-block;padding-left:calc(var(--niveau,0) * 22px)}
+.actions-cellule{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline}
+.actions-cellule form{margin:0}
+.pagination-simple{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--bord)}
+
+/* Pastilles d'état */
+.pastille{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:700;white-space:nowrap;background:var(--vert-pale);color:var(--vert-profond)}
+.pastille--ok{background:var(--vert-pale);color:var(--vert-profond)}
+.pastille--attente{background:var(--or-pale);color:#6B5000}
+.pastille--alerte{background:var(--erreur-pale);color:#7A1A12}
+.pastille--off{background:#E8ECEA;color:var(--encre-douce)}
+
+/* Code d'activation (affiché une seule fois) */
+.code-box{margin:0 0 22px;padding:22px 24px;background:var(--or-pale);border:2px solid var(--or);border-radius:12px}
+.code-box h2{margin-bottom:8px;font-size:1.05rem}
+.code-box p{margin:6px 0}
+.code-box__code{margin:10px 0 12px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:2.2rem;font-weight:700;letter-spacing:.3em;color:var(--vert-profond)}
+
+@media (max-width:899px){
+  .tableau th,.tableau td{padding:10px 12px}
+  .code-box__code{font-size:1.7rem}
+}
+@media print{
+  .menu,.barre,.rh-onglets,.bouton,.actions-ligne{display:none!important}
+  .code-box{border-color:#000;background:#fff}
+}
