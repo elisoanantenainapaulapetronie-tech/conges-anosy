@@ -23,6 +23,15 @@
 
     @include('rh._onglets', ['actif' => 'agents'])
 
+    @if (! empty($alertes))
+        <div class="alerte alerte--info" role="status">
+            <strong>À vérifier dans le circuit de cet agent :</strong>
+            <ul style="margin:6px 0 0;padding-left:20px">
+                @foreach ($alertes as $m) <li>{{ $m }}</li> @endforeach
+            </ul>
+        </div>
+    @endif
+
     @if (session('code_activation'))
         <section class="code-box" role="status" aria-labelledby="cb-titre">
             <h2 id="cb-titre">Code d’activation de {{ $agent->nom_complet }}</h2>
@@ -42,10 +51,10 @@
             <dt>Naissance</dt><dd>{{ $fmt($agent->date_naissance) }}</dd>
             <dt>Téléphone</dt><dd>{{ $agent->telephone ?? '—' }}</dd>
             <dt>E-mail</dt><dd>{{ $agent->email ?? '—' }}</dd>
-            <dt>Grade / catégorie</dt><dd>{{ $agent->grade_categorie ?? '—' }}</dd>
-            <dt>Responsable direct</dt>
+            <dt>Grade ou catégorie</dt><dd>{{ $agent->grade_categorie ?? '—' }}</dd>
+            <dt>Responsable qui donne l’avis</dt>
             <dd>@if ($agent->responsable) <a href="{{ route('rh.agents.show', $agent->responsable) }}">{{ $agent->responsable->nom_complet }}</a> @else — @endif</dd>
-            <dt>Circuit de décision</dt><dd>{{ $agent->rattachement === 'region' ? 'Chef de Région' : 'Secrétaire Général' }}</dd>
+            <dt>Autorité décisionnaire</dt><dd>{{ $agent->rattachement === 'region' ? 'Chef de Région' : 'Secrétaire Général' }}</dd>
             <dt>Entrée</dt><dd>{{ $fmt($agent->date_entree) }}</dd>
             @if ($agent->date_sortie) <dt>Sortie</dt><dd>{{ $fmt($agent->date_sortie) }}</dd> @endif
         </dl>
@@ -161,7 +170,7 @@
 
     @if ($equipe->isNotEmpty())
         <section class="panneau" aria-labelledby="s-equipe">
-            <h2 id="s-equipe">Agents placés sous sa responsabilité ({{ $equipe->count() }})</h2>
+            <h2 id="s-equipe">Agents dont il donne l’avis ({{ $equipe->count() }})</h2>
             <ul class="liste-simple">
                 @foreach ($equipe as $e)
                     <li><a href="{{ route('rh.agents.show', $e) }}">{{ $e->nom_complet }}</a><span class="discret">{{ $e->identifiant }}</span></li>

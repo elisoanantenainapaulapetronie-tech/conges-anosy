@@ -35,6 +35,8 @@
 .panneau .bouton--ligne + .bouton--ligne{margin-left:0}
 .panneau form > .bouton--ligne{margin-top:22px}
 
+.champ__aide--alerte{color:#7A1A12;font-weight:600}
+
 /* Tuiles du tableau de bord */
 .tuiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:22px}
 .tuile{display:block;padding:18px 20px;color:inherit;text-decoration:none;background:#fff;border:1px solid var(--bord);border-top:4px solid var(--vert);border-radius:12px}

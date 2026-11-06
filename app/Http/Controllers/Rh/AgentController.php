@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\Autorise;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Services\AuditService;
+use App\Services\CircuitRegles;
 use App\Services\OrganisationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -126,7 +127,9 @@ class AgentController extends Controller
         $roles = DB::table('roles')->orderBy('id')->get(['id', 'code', 'libelle', 'description']);
         $structures = DB::table('structures')->where('actif', 1)->orderBy('nom')->pluck('nom', 'id');
 
-        return view('rh.agents.show', compact('agent', 'habilitations', 'affectations', 'equipe', 'roles', 'structures', 'aujourdhui'));
+        $alertes = CircuitRegles::incoherences($agent);
+
+        return view('rh.agents.show', compact('agent', 'habilitations', 'affectations', 'equipe', 'roles', 'structures', 'aujourdhui', 'alertes'));
     }
 
     public function edit(Agent $agent)
@@ -203,7 +206,13 @@ class AgentController extends Controller
             'structure_id' => ['required', 'integer',
                 Rule::exists('structures', 'id')->where(fn ($q) => $q->where('actif', 1)->orWhere('id', $agent?->structure_id))],
             'responsable_id' => ['nullable', 'integer',
-                Rule::exists('agents', 'id')->where(fn ($q) => $q->where('situation', 'actif')->orWhere('id', $agent?->responsable_id))],
+                Rule::exists('agents', 'id')->where(fn ($q) => $q->where('situation', 'actif')->orWhere('id', $agent?->responsable_id)),
+                // Un seul responsable donne l'avis : il doit exercer un rôle de responsable (sauf s'il est déjà désigné).
+                function (string $attribut, mixed $valeur, \Closure $echec) use ($agent) {
+                    if ($valeur && (int) $valeur !== (int) $agent?->responsable_id && ! CircuitRegles::peutDonnerAvis((int) $valeur)) {
+                        $echec('Cette personne n’exerce aucun rôle de responsable : choisissez le directeur (ou le responsable) qui donnera l’avis. Attribuez-lui d’abord le rôle si nécessaire.');
+                    }
+                }],
             'rattachement' => ['required', Rule::in(['sg', 'region'])],
             'date_entree' => ['required', 'date'],
         ];
@@ -244,8 +253,10 @@ class AgentController extends Controller
             ->where(fn ($q) => $q->where('actif', 1)->orWhere('id', $agent?->structure_id))
             ->orderBy('nom')->get(['id', 'nom', 'rattachement']);
 
-        $responsables = Agent::query()
-            ->where(fn ($q) => $q->where('situation', 'actif')->orWhere('id', $agent?->responsable_id))
+        // On ne propose que les personnes qui peuvent donner l'avis (rôle de responsable en cours), plus le responsable actuel.
+        $eligibles = array_values(array_unique(array_filter([...CircuitRegles::detenteursAvis(), $agent?->responsable_id])));
+        $responsables = Agent::query()->with('fonction')
+            ->whereIn('id', $eligibles)
             ->when($agent, fn ($q) => $q->where('id', '!=', $agent->id))
             ->orderBy('nom')->orderBy('prenoms')->get();
 
@@ -253,7 +264,8 @@ class AgentController extends Controller
             'structures' => $structures->pluck('nom', 'id')->all(),
             'rattachements' => $structures->pluck('rattachement', 'id')->all(),
             'fonctions' => DB::table('fonctions')->orderBy('libelle')->pluck('libelle', 'id')->all(),
-            'responsables' => $responsables->mapWithKeys(fn ($r) => [$r->id => $r->nom_complet.' ('.$r->identifiant.')'])->all(),
+            'responsables' => $responsables->mapWithKeys(fn ($r) => [$r->id => $r->nom_complet.($r->fonction ? ' — '.$r->fonction->libelle : '')])->all(),
+            'suggestions' => CircuitRegles::suggestions($agent?->id),
         ];
     }
 

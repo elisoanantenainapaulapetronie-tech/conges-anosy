@@ -38,14 +38,15 @@
                             aide="Facultatif. Sans matricule, un identifiant ANO-xxxxx est généré pour la connexion." />
                 <x-rh-liste nom="fonction_id" label="Fonction" :valeur="$agent->fonction_id" vide="— Aucune —" :options="$liste['fonctions']"
                             aide="La fonction est un simple libellé : elle ne donne aucun droit." />
-                <x-rh-champ nom="grade_categorie" label="Grade / catégorie" :valeur="$agent->grade_categorie" />
+                <x-rh-champ nom="grade_categorie" label="Grade ou catégorie" :valeur="$agent->grade_categorie" />
                 <x-rh-liste nom="structure_id" label="Service ou direction" :requis="true" :valeur="$agent->structure_id" vide="— Choisir —"
-                            :options="$liste['structures']" :donnees="$liste['rattachements']" data-synchro="rattachement" />
-                <x-rh-liste nom="responsable_id" label="Responsable direct" :valeur="$agent->responsable_id" vide="— Aucun —"
-                            :options="$liste['responsables']" aide="Une personne précise : c’est elle qui donne l’avis préalable." />
-                <x-rh-liste nom="rattachement" label="Circuit de décision" :requis="true" :valeur="$agent->rattachement"
+                            :options="$liste['structures']" :donnees="$liste['rattachements']" data-synchro="rattachement" data-suggerer="responsable_id" />
+                <x-rh-liste nom="responsable_id" label="Responsable qui donne l’avis" :valeur="$agent->responsable_id" vide="— Aucun —"
+                            :options="$liste['responsables']" :data-suggestions="json_encode($liste['suggestions'])"
+                            aide="Un seul : en principe le Directeur de rattachement ; un chef de service seulement si vous le désignez. Pour un directeur : le Secrétaire Général. Il reçoit directement la demande d’avis de l’agent." />
+                <x-rh-liste nom="rattachement" label="Autorité décisionnaire" :requis="true" :valeur="$agent->rattachement"
                             :options="['sg' => 'Secrétaire Général', 'region' => 'Chef de Région']"
-                            aide="Choisi par la RH : l’agent ne peut pas le modifier. Proposé d’après le service." />
+                            aide="Désignée à l’avance par la RH ; l’agent ne peut pas la modifier. La demande lui est transmise après l’avis et le contrôle RH. Proposée d’après le service ; pour un directeur : Chef de Région." />
                 <x-rh-champ nom="date_entree" label="Date d’entrée" type="date" :requis="true" :valeur="$agent->date_entree?->format('Y-m-d')" />
             </div>
         </section>

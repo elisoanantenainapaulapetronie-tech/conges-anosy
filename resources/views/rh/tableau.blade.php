@@ -33,6 +33,27 @@
         </div>
     @endif
 
+    @if ($sansResponsable->isNotEmpty() || $responsableSansRole->isNotEmpty())
+        <section class="panneau" aria-labelledby="t-circuit">
+            <h2 id="t-circuit">Circuit à corriger</h2>
+            <p class="panneau__note">Sans responsable valide, la demande d’avis d’un agent n’aurait aucun destinataire.</p>
+            <ul class="liste-simple">
+                @foreach ($sansResponsable as $a)
+                    <li>
+                        <span><strong>{{ $a->nom_complet }}</strong> <span class="discret">{{ $a->structure?->nom }}</span> — <span class="pastille pastille--alerte">aucun responsable</span></span>
+                        <a href="{{ route('rh.agents.edit', $a) }}">Désigner</a>
+                    </li>
+                @endforeach
+                @foreach ($responsableSansRole as $a)
+                    <li>
+                        <span><strong>{{ $a->nom_complet }}</strong> <span class="discret">{{ $a->structure?->nom }}</span> — <span class="pastille pastille--attente">{{ $a->responsable?->nom_complet }} ne peut plus donner l’avis</span></span>
+                        <a href="{{ route('rh.agents.edit', $a) }}">Changer</a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     <section class="panneau" aria-labelledby="t-traiter">
         <h2 id="t-traiter">Agents sans compte de connexion</h2>
         @if ($aTraiter->isEmpty())
