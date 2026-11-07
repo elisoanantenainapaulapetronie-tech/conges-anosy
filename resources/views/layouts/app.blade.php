@@ -8,6 +8,9 @@
     @include('partials.polices')
     <link rel="stylesheet" href="{{ asset('css/anosy.css') }}">
     <link rel="stylesheet" href="{{ asset('css/identite.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/identite.css') }}">
+            <style>:root{--img-region:url('{{ asset('images/fort-dauphin-bandeau.jpg') }}')}</style>
+
     {{-- Vue de Fort-Dauphin du bandeau d'en-tête : déclarée ici, une seule fois, pour tous les espaces --}}
     <style>:root{--img-region:url('{{ asset('images/fort-dauphin-bandeau.jpg') }}')}</style>
 </head>
