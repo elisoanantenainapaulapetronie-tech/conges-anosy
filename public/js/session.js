@@ -1,6 +1,7 @@
 /* Avertit l'agent 2 minutes avant la fin de session et lui permet de la prolonger.
    Le serveur ferme la session après "duree" minutes sans requête : ce script envoie un signal
-   discret quand l'agent travaille (frappe, clic, défilement), au plus une fois par minute. */
+   discret quand l'agent travaille (frappe, clic, souris, défilement), au plus une fois par minute.
+   Le délai est celui de l'INACTIVITÉ : chaque action le repousse (30 minutes, voir config/conges.php). */
 (function () {
   var script = document.currentScript || document.querySelector('script[data-duree]');
   if (!script) return;
@@ -29,7 +30,14 @@
   }
 
   function sortir() {
-    window.location.href = script.dataset.sortie + '?expiree=1';
+    // On ferme réellement la session côté serveur, sinon la page de connexion renverrait vers l'accueil.
+    var fin = function () { window.location.href = script.dataset.sortie + '?expiree=1'; };
+    if (!script.dataset.deconnexion) { fin(); return; }
+    fetch(script.dataset.deconnexion, {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': script.dataset.jeton, 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'same-origin'
+    }).then(fin, fin);
   }
 
   function activite() {
@@ -37,7 +45,7 @@
     derniereActivite = Date.now();
     if (Date.now() - dernierPing > 60000) ping();
   }
-  ['keydown', 'click', 'scroll', 'touchstart'].forEach(function (e) {
+  ['keydown', 'click', 'scroll', 'touchstart', 'mousemove', 'pointerdown'].forEach(function (e) {
     document.addEventListener(e, activite, { passive: true });
   });
 

@@ -7,6 +7,7 @@
         <li><a href="{{ route('rh') }}" @if (($actif ?? '') === 'tableau') aria-current="page" @endif>Tableau de bord</a></li>
         <li><a href="{{ route('rh.agents.index') }}" @if (($actif ?? '') === 'agents') aria-current="page" @endif>Agents</a></li>
         <li><a href="{{ route('rh.structures.index') }}" @if (($actif ?? '') === 'structures') aria-current="page" @endif>Organisation</a></li>
+        <li><a href="{{ route('rh.fonctions.index') }}" @if (($actif ?? '') === 'fonctions') aria-current="page" @endif>Fonctions</a></li>
     </ul>
 </nav>
 

@@ -13,7 +13,8 @@ use Illuminate\Validation\ValidationException;
  *
  *  1. Un seul responsable donne l'avis : désigné par la RH dans la fiche (en principe le Directeur ;
  *     un chef de service seulement si la RH le désigne).
- *  2. L'autorité décisionnaire est désignée dans la fiche : « sg » ou « region ».
+ *  2. L'autorité décisionnaire est désignée dans la fiche : « sg », « region » ou « sg_region »
+ *     (les deux : le Secrétaire Général décide d'abord, puis le Chef de Région, dans cet ordre).
  *  3. Directeur demandeur : avis du SG, décision du Chef de Région (paramètres, à valider par l'administration).
  *  4. Mission hors Région : décision du Chef de Région, quelle que soit la fiche.
  *  5. Décision qui accepte malgré un avis défavorable : motif obligatoire (tout avis défavorable).
@@ -25,25 +26,75 @@ class CircuitRegles
 
     private const LIBELLES_AUTORITE = ['secretaire_general' => 'Secrétaire Général', 'chef_region' => 'Chef de Région'];
 
+    /** Les trois circuits de décision possibles, tels qu'ils sont enregistrés et affichés. */
+    public const CIRCUITS = [
+        'sg' => 'Secrétaire Général',
+        'region' => 'Chef de Région',
+        'sg_region' => 'Les deux (Secrétaire Général et Chef de Région)',
+    ];
+
+    /** Étapes de décision, dans l'ordre, pour chaque circuit. Une étape refusée arrête la demande. */
+    public const ETAPES = [
+        'sg' => ['sg'],
+        'region' => ['region'],
+        'sg_region' => ['sg', 'region'],
+    ];
+
+    public static function libelle(?string $circuit): string
+    {
+        return self::CIRCUITS[$circuit] ?? '—';
+    }
+
+    /** Libellé court (tableaux) : « Secrétaire Général », « Chef de Région », « SG puis Chef de Région ». */
+    public static function libelleCourt(?string $circuit): string
+    {
+        return $circuit === 'sg_region' ? 'SG puis Chef de Région' : self::libelle($circuit);
+    }
+
+    /** Parcours complet d'une demande de congé, lisible par la RH (aperçu dans les formulaires et fiches). */
+    public static function parcours(?string $circuit): string
+    {
+        $decisions = array_map(fn ($e) => $e === 'sg' ? 'Décision du Secrétaire Général' : 'Décision du Chef de Région',
+            self::ETAPES[$circuit] ?? []);
+
+        return implode(' → ', ['Avis du responsable', 'Contrôle RH', ...$decisions, 'Enregistrement automatique']);
+    }
+
+    /**
+     * Étapes de décision, dans l'ordre : ['sg'], ['region'] ou ['sg', 'region'].
+     * C'est ce que le futur CircuitService (phase 3) transformera en étapes figées de la demande.
+     */
+    public static function etapesDecision(Agent $demandeur, ?string $famille = null, bool $horsRegion = false): array
+    {
+        return self::ETAPES[self::autoriteDecision($demandeur, $famille, $horsRegion)] ?? ['sg'];
+    }
+
+    /** Cette autorité (« sg » ou « region ») intervient-elle dans ce circuit ? */
+    public static function intervient(?string $circuit, string $autorite): bool
+    {
+        return in_array($autorite, self::ETAPES[$circuit] ?? [], true);
+    }
+
     // ------------------------------------------------------------------ autorité décisionnaire
 
-    /** Traduit un paramètre (« chef_region », « secretaire_general ») en circuit « region » / « sg ». */
+    /** Traduit un paramètre (« chef_region », « secretaire_general », « les_deux ») en circuit « region » / « sg » / « sg_region ». */
     public static function autorite(string $cle, string $defaut): string
     {
         return match (Parametres::valeur($cle)) {
             'secretaire_general' => 'sg',
             'chef_region' => 'region',
+            'les_deux' => 'sg_region',
             default => $defaut,
         };
     }
 
     /**
-     * Autorité qui décidera : « sg » ou « region ».
+     * Circuit de décision : « sg », « region » ou « sg_region » (les deux, SG d'abord).
      * Part de la fiche de l'agent, puis applique les deux exceptions validées (Directeur ; mission hors Région).
      */
     public static function autoriteDecision(Agent $demandeur, ?string $famille = null, bool $horsRegion = false): string
     {
-        $autorite = $demandeur->rattachement === 'region' ? 'region' : 'sg';
+        $autorite = array_key_exists((string) $demandeur->rattachement, self::CIRCUITS) ? $demandeur->rattachement : 'sg';
 
         if ($demandeur->exists && self::estDirecteur((int) $demandeur->id)) {
             $autorite = self::autorite('directeur_decision_par', $autorite);
@@ -177,7 +228,7 @@ class CircuitRegles
             }
             $attendue = self::autorite('directeur_decision_par', 'region');
             if ($agent->rattachement !== $attendue) {
-                $messages[] = 'Pour un directeur, la décision revient au '.($attendue === 'region' ? 'Chef de Région' : 'Secrétaire Général').' : réglez l’autorité décisionnaire en conséquence.';
+                $messages[] = 'Pour un directeur, la décision revient à : '.self::libelle($attendue).'. Réglez l’autorité décisionnaire en conséquence.';
             }
         }
 

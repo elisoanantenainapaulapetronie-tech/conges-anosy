@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\Autorise;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Services\AuditService;
+use App\Services\CircuitRegles;
 use App\Services\OrganisationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,9 @@ use Illuminate\Validation\ValidationException;
 class StructureController extends Controller
 {
     use Autorise;
+
+    /** Valeur de la liste « Dépend de » qui signifie « la structure parente n'est pas dans la liste : je la saisis ». */
+    public const PARENT_AUTRE = '__autre__';
 
     public const TYPES = [
         'cabinet' => 'Cabinet',
@@ -62,7 +66,7 @@ class StructureController extends Controller
     {
         $this->exigerRhResponsable();
 
-        $donnees = $request->validate($this->regles(null), $this->messages());
+        $donnees = $this->preparer($request->validate($this->regles(null), $this->messages()));
         $id = DB::table('structures')->insertGetId($donnees + ['actif' => 1]);
         AuditService::enregistrer('structure_creee', null, null, ['id' => $id] + $donnees);
 
@@ -82,6 +86,7 @@ class StructureController extends Controller
         $actuelle = $this->trouver($structure);
 
         $donnees = $request->validate($this->regles($actuelle), $this->messages());
+        $donnees = $this->preparer($donnees);
 
         if (! empty($donnees['parent_id'])
             && in_array((int) $donnees['parent_id'], OrganisationService::structuresEnfants($actuelle->id), true)) {
@@ -142,8 +147,21 @@ class StructureController extends Controller
             'nom' => ['required', 'string', 'max:190'],
             'code' => ['nullable', 'string', 'max:30', Rule::unique('structures', 'code')->ignore($s->id ?? null)],
             'type' => ['required', Rule::in(array_keys(self::TYPES))],
-            'parent_id' => ['nullable', 'integer', 'exists:structures,id', Rule::notIn([$s->id ?? 0])],
-            'rattachement' => ['required', Rule::in(['sg', 'region'])],
+            // Type « Autre » : on précise de quel type il s'agit (Mission, Projet, Antenne…).
+            'type_precision' => ['nullable', 'string', 'max:80', 'required_if:type,autre'],
+            // Une structure de la liste, ou « __autre__ » : la structure parente saisie à la main est alors créée.
+            'parent_id' => ['nullable', function (string $attribut, mixed $valeur, \Closure $echec) use ($s) {
+                if ($valeur === null || $valeur === '' || $valeur === self::PARENT_AUTRE) {
+                    return;
+                }
+                if (! ctype_digit((string) $valeur) || ! DB::table('structures')->where('id', (int) $valeur)->exists()) {
+                    $echec('Cette structure n’existe pas.');
+                } elseif ((int) $valeur === (int) ($s->id ?? 0)) {
+                    $echec('Une structure ne peut pas dépendre d’elle-même.');
+                }
+            }],
+            'parent_autre' => ['nullable', 'string', 'max:190', 'required_if:parent_id,'.self::PARENT_AUTRE],
+            'rattachement' => ['required', Rule::in(array_keys(CircuitRegles::CIRCUITS))],
         ];
     }
 
@@ -155,7 +173,41 @@ class StructureController extends Controller
             'type.required' => 'Choisissez le type de structure.',
             'parent_id.not_in' => 'Une structure ne peut pas dépendre d’elle-même.',
             'rattachement.required' => 'Indiquez le circuit de décision.',
+            'type_precision.required_if' => 'Précisez le type de cette structure (ex. Mission, Projet, Antenne).',
+            'parent_autre.required_if' => 'Saisissez le nom de la structure dont celle-ci dépend.',
         ];
+    }
+
+    /**
+     * Applique les saisies libres : le texte du type n'est gardé que pour « Autre », et une structure parente
+     * saisie à la main est retrouvée par son nom (sans tenir compte des accents ni de la casse) ou créée.
+     */
+    private function preparer(array $donnees): array
+    {
+        $donnees['type_precision'] = $donnees['type'] === 'autre'
+            ? mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $donnees['type_precision'])), 0, 80) : null;
+
+        if (($donnees['parent_id'] ?? null) === self::PARENT_AUTRE) {
+            $nom = mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $donnees['parent_autre'])), 0, 190);
+            if ($nom === '') {
+                throw ValidationException::withMessages(['parent_autre' => 'Saisissez le nom de la structure dont celle-ci dépend.']);
+            }
+            $existante = DB::table('structures')->where('nom', $nom)->first();
+            if ($existante) {
+                $donnees['parent_id'] = (int) $existante->id;
+            } else {
+                $donnees['parent_id'] = DB::table('structures')->insertGetId([
+                    'nom' => $nom, 'type' => 'autre', 'type_precision' => 'Ajoutée lors de la saisie d’une structure',
+                    'parent_id' => null, 'rattachement' => $donnees['rattachement'], 'actif' => 1,
+                ]);
+                AuditService::enregistrer('structure_creee', null, null, ['id' => $donnees['parent_id'], 'nom' => $nom, 'origine' => 'saisie libre']);
+            }
+        }
+
+        $donnees['parent_id'] = ($donnees['parent_id'] ?? '') === '' ? null : (int) $donnees['parent_id'];
+        unset($donnees['parent_autre']);
+
+        return $donnees;
     }
 
     private function donneesFormulaire(object $structure): array

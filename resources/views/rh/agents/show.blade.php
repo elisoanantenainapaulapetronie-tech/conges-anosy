@@ -9,12 +9,15 @@
 @endphp
 @section('contenu')
     <header class="entete entete--action">
-        <div>
-            <h1>{{ $agent->nom_complet }}</h1>
-            <p class="poste">
-                {{ $agent->fonction?->libelle ?? 'Sans fonction' }} · {{ $agent->structure?->nom }}
-                @if ($agent->situation !== 'actif') <span class="pastille pastille--off">{{ ucfirst($agent->situation) }}</span> @endif
-            </p>
+        <div class="entete--profil">
+            <x-avatar :agent="$agent" taille="lg" :alt="'Photo de '.$agent->nom_complet" />
+            <div>
+                <h1>{{ $agent->nom_complet }}</h1>
+                <p class="poste">
+                    {{ $agent->fonction?->libelle ?? 'Sans fonction' }} · {{ $agent->structure?->nom }}
+                    @if ($agent->situation !== 'actif') <span class="pastille pastille--off">{{ ucfirst($agent->situation) }}</span> @endif
+                </p>
+            </div>
         </div>
         @can('modifier', $agent)
             <a class="bouton bouton--ligne bouton--discret" href="{{ route('rh.agents.edit', $agent) }}">Modifier la fiche</a>
@@ -54,10 +57,29 @@
             <dt>Grade ou catégorie</dt><dd>{{ $agent->grade_categorie ?? '—' }}</dd>
             <dt>Responsable qui donne l’avis</dt>
             <dd>@if ($agent->responsable) <a href="{{ route('rh.agents.show', $agent->responsable) }}">{{ $agent->responsable->nom_complet }}</a> @else — @endif</dd>
-            <dt>Autorité décisionnaire</dt><dd>{{ $agent->rattachement === 'region' ? 'Chef de Région' : 'Secrétaire Général' }}</dd>
+            <dt>Autorité décisionnaire</dt><dd>{{ \App\Services\CircuitRegles::libelle($agent->rattachement) }}<span class="discret bloc">{{ \App\Services\CircuitRegles::parcours($agent->rattachement) }}</span></dd>
             <dt>Entrée</dt><dd>{{ $fmt($agent->date_entree) }}</dd>
             @if ($agent->date_sortie) <dt>Sortie</dt><dd>{{ $fmt($agent->date_sortie) }}</dd> @endif
         </dl>
+    </section>
+
+    <section class="panneau" aria-labelledby="s-photo" id="photo">
+        <h2 id="s-photo">Photo de profil</h2>
+        @can('modifier', $agent)
+            @include('partials.photo-formulaire', [
+                'agent' => $agent,
+                'action' => route('rh.agents.photo.enregistrer', $agent),
+                'supprimer' => route('rh.agents.photo.supprimer', $agent),
+            ])
+        @else
+            <p class="panneau__note" style="margin:0">
+                @if ((int) auth()->user()->agent_id === (int) $agent->id)
+                    Votre propre photo se modifie depuis <a href="{{ route('profil') }}">Mon profil</a>.
+                @else
+                    Vous n’avez pas le droit de modifier la photo de cet agent.
+                @endif
+            </p>
+        @endcan
     </section>
 
     <section class="panneau" aria-labelledby="s-compte" id="compte">
@@ -191,7 +213,7 @@
                         <td>{{ $fmt($a->date_debut) }} → {{ $a->date_fin ? $fmt($a->date_fin) : 'en cours' }}</td>
                         <td>{{ $a->structure_nom }}</td>
                         <td>{{ $a->responsable_nom ?: '—' }}</td>
-                        <td>{{ $a->rattachement === 'region' ? 'Chef de Région' : 'Secrétaire Général' }}</td>
+                        <td>{{ \App\Services\CircuitRegles::libelleCourt($a->rattachement) }}</td>
                         <td>{{ $a->motif ?? '—' }}</td>
                     </tr>
                 @endforeach

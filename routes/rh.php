@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Rh\AgentController;
 use App\Http\Controllers\Rh\CompteController;
+use App\Http\Controllers\Rh\FonctionController;
 use App\Http\Controllers\Rh\HabilitationController;
 use App\Http\Controllers\Rh\StructureController;
 use App\Http\Controllers\Rh\TableauRhController;
@@ -35,6 +36,14 @@ Route::middleware(['auth', 'role:rh_gestionnaire,rh_responsable'])->group(functi
         Route::post('/agents/{agent}/habilitations', [HabilitationController::class, 'store'])->whereNumber('agent')->name('habilitations.store');
         Route::delete('/agents/{agent}/habilitations/{habilitation}', [HabilitationController::class, 'retirer'])
             ->whereNumber(['agent', 'habilitation'])->name('habilitations.retirer');
+
+        // Fonctions et postes (liste ouverte)
+        Route::get('/fonctions', [FonctionController::class, 'index'])->name('fonctions.index');
+        Route::get('/fonctions/nouvelle', [FonctionController::class, 'create'])->name('fonctions.create');
+        Route::post('/fonctions', [FonctionController::class, 'store'])->name('fonctions.store');
+        Route::get('/fonctions/{fonction}/modifier', [FonctionController::class, 'edit'])->whereNumber('fonction')->name('fonctions.edit');
+        Route::put('/fonctions/{fonction}', [FonctionController::class, 'update'])->whereNumber('fonction')->name('fonctions.update');
+        Route::post('/fonctions/{fonction}/etat', [FonctionController::class, 'etat'])->whereNumber('fonction')->name('fonctions.etat');
 
         // Structures
         Route::get('/structures', [StructureController::class, 'index'])->name('structures.index');

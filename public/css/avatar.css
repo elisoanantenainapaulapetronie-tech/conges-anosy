@@ -1,0 +1,30 @@
+/* Photo de profil (avatar). Complète anosy.css, qui définit déjà .avatar (initiales sur fond vert). */
+
+.avatar{flex:none}
+img.avatar{display:block;object-fit:cover;background:var(--vert-pale)}
+.avatar--sm{width:38px;height:38px}
+.avatar--md{width:56px;height:56px;font-size:1.1rem}
+.avatar--lg{width:112px;height:112px;font-size:2.2rem;border:3px solid #fff;box-shadow:0 0 0 2px var(--bord)}
+
+/* Avatar de la barre du haut = lien vers « Mon profil » */
+.barre__profil{display:inline-flex;border-radius:50%;text-decoration:none}
+.barre__profil:hover .avatar{box-shadow:0 0 0 3px var(--or-pale)}
+.barre__profil:focus-visible{outline:3px solid var(--or);outline-offset:2px}
+
+/* En-tête avec grande photo, et nom + avatar côte à côte dans les listes */
+.entete--profil{display:flex;flex-wrap:wrap;align-items:center;gap:18px 22px}
+.liste-agent{display:flex;align-items:center;gap:12px}
+
+/* Formulaire de photo (partagé par « Mon profil » et la fiche RH) */
+.photo-formulaire{display:grid;gap:14px;max-width:460px}
+.photo-formulaire input[type="file"]{padding:10px;height:auto;min-height:46px}
+.photo-apercu{display:flex;align-items:center;gap:14px;font-size:.9rem;color:var(--encre-douce)}
+.photo-apercu img{width:112px;height:112px;object-fit:cover;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 2px var(--bord)}
+.photo-apercu[hidden]{display:none}
+.actions-photo{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
+.actions-photo form{margin:0}
+
+/* Boutons « en ligne » (déjà définis dans rh.css pour l'espace RH ; répétés ici pour « Mon profil ») */
+.bouton--ligne{width:auto;height:44px;margin:0;padding:0 18px}
+.bouton--danger{color:var(--erreur);background:#fff;border:1.5px solid var(--erreur);box-shadow:none}
+.bouton--danger:hover{background:var(--erreur-pale)}

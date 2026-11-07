@@ -19,8 +19,8 @@ class AgentPolicy
         return (int) $cible->id === (int) $moi->id
             || $this->estRh($moi)
             || in_array((int) $cible->responsable_id, $this->identites($moi), true)
-            || ($moi->aLeRole('secretaire_general') && $cible->rattachement === 'sg')
-            || ($moi->aLeRole('chef_region') && $cible->rattachement === 'region');
+            || ($moi->aLeRole('secretaire_general') && in_array($cible->rattachement, ['sg', 'sg_region'], true))
+            || ($moi->aLeRole('chef_region') && in_array($cible->rattachement, ['region', 'sg_region'], true));
     }
 
     public function voirListe(Compte $compte): bool

@@ -5,14 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('titre') — Congés Anosy</title>
     <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
-   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('titre') — Congés Anosy</title>
-    <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
-   @include('partials.polices')
+    @include('partials.polices')
     <link rel="stylesheet" href="{{ asset('css/anosy.css') }}">
-</head>
+    <link rel="stylesheet" href="{{ asset('css/identite.css') }}">
+    {{-- Vue de Fort-Dauphin du bandeau d'en-tête : déclarée ici, une seule fois, pour tous les espaces --}}
+    <style>:root{--img-region:url('{{ asset('images/fort-dauphin-bandeau.jpg') }}')}</style>
 </head>
 <body>
 @php
@@ -32,15 +29,14 @@
         <nav aria-label="Navigation principale">
             <ul>
                 <li>
-                    <a href="{{ route('accueil') }}" @if (request()->routeIs('rh', 'rh.*')) aria-current="page" @endif
->
+                    <a href="{{ route('accueil') }}" @if (request()->routeIs('accueil')) aria-current="page" @endif>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
                         Accueil
                     </a>
                 </li>
                 @if ($moi->aLeRole('rh_gestionnaire', 'rh_responsable'))
                     <li>
-                        <a href="{{ route('rh') }}" @if (request()->routeIs('rh')) aria-current="page" @endif>
+                        <a href="{{ route('rh') }}" @if (request()->routeIs('rh', 'rh.*')) aria-current="page" @endif>
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                             Espace RH
                         </a>
@@ -61,7 +57,9 @@
                     <strong>{{ $moi->nom_complet }}</strong>
                     <span>{{ $moi->fonction?->libelle ?? $moi->identifiant }}</span>
                 </div>
-                <span class="avatar" aria-hidden="true">{{ $initiales }}</span>
+                <a href="{{ route('profil') }}" class="barre__profil" title="Mon profil" aria-label="Mon profil">
+                    <x-avatar :agent="$moi" />
+                </a>
                 <form method="POST" action="{{ route('deconnexion') }}">
                     @csrf
                     <button type="submit" class="bouton bouton--discret">Se déconnecter</button>

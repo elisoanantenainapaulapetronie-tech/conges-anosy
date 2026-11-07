@@ -12,6 +12,7 @@
     </header>
 
     @include('rh._onglets', ['actif' => 'structures'])
+    @include('rh.structures._aide')
 
     <section class="panneau panneau--table">
         <div class="table-enveloppe">
@@ -29,8 +30,8 @@
                                 {{ $s->nom }}@if ($s->code) <span class="discret">({{ $s->code }})</span>@endif
                             </span>
                         </td>
-                        <td>{{ $types[$s->type] ?? $s->type }}</td>
-                        <td>{{ $s->rattachement === 'region' ? 'Chef de Région' : 'Secrétaire Général' }}</td>
+                        <td>{{ $s->type === 'autre' && $s->type_precision ? 'Autre : '.$s->type_precision : ($types[$s->type] ?? $s->type) }}</td>
+                        <td>{{ \App\Services\CircuitRegles::libelleCourt($s->rattachement) }}</td>
                         <td>
                             @if ($l['effectif'] > 0)
                                 <a href="{{ route('rh.agents.index', ['structure' => $s->id]) }}">{{ $l['effectif'] }}</a>

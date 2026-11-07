@@ -21,6 +21,9 @@ class AgentController extends Controller
 {
     use Autorise;
 
+    /** Valeur de la liste « Fonction » qui signifie « elle n'est pas dans la liste : je la saisis ». */
+    public const FONCTION_AUTRE = '__autre__';
+
     private const CHAMPS_FICHE = [
         'matricule', 'nom', 'prenoms', 'sexe', 'date_naissance', 'telephone', 'email', 'fonction_id',
         'grade_categorie', 'structure_id', 'responsable_id', 'rattachement', 'date_entree',
@@ -75,6 +78,7 @@ class AgentController extends Controller
         $this->autoriser('creer', Agent::class);
 
         $donnees = $request->validate($this->regles(null), $this->messages());
+        $this->resoudreFonction($donnees);
 
         $agent = DB::transaction(function () use ($donnees) {
             $agent = Agent::create(Arr::only($donnees, self::CHAMPS_FICHE));
@@ -146,6 +150,7 @@ class AgentController extends Controller
         $donnees = $request->validate($this->regles($agent), $this->messages());
         $this->controlerResponsable($agent, $donnees);
         $this->controlerSituation($agent, $donnees);
+        $this->resoudreFonction($donnees);
 
         $avant = $agent->only([...self::CHAMPS_FICHE, 'situation', 'date_sortie']);
         $circuitChange = (int) $agent->structure_id !== (int) $donnees['structure_id']
@@ -201,7 +206,16 @@ class AgentController extends Controller
                 Rule::unique('agents', 'matricule')->ignore($id), Rule::unique('agents', 'identifiant')->ignore($id)],
             'telephone' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+\s().-]{6,30}$/'],
             'email' => ['nullable', 'email:rfc', 'max:190'],
-            'fonction_id' => ['nullable', 'integer', 'exists:fonctions,id'],
+            // Une fonction de la liste, ou « __autre__ » : la fonction saisie à la main est alors créée (voir resoudreFonction).
+            'fonction_id' => ['nullable', function (string $attribut, mixed $valeur, \Closure $echec) {
+                if ($valeur === null || $valeur === '' || $valeur === self::FONCTION_AUTRE) {
+                    return;
+                }
+                if (! ctype_digit((string) $valeur) || ! DB::table('fonctions')->where('id', (int) $valeur)->exists()) {
+                    $echec('Cette fonction n’existe pas.');
+                }
+            }],
+            'fonction_autre' => ['nullable', 'string', 'max:120', 'required_if:fonction_id,'.self::FONCTION_AUTRE],
             'grade_categorie' => ['nullable', 'string', 'max:60'],
             'structure_id' => ['required', 'integer',
                 Rule::exists('structures', 'id')->where(fn ($q) => $q->where('actif', 1)->orWhere('id', $agent?->structure_id))],
@@ -213,7 +227,7 @@ class AgentController extends Controller
                         $echec('Cette personne n’exerce aucun rôle de responsable : choisissez le directeur (ou le responsable) qui donnera l’avis. Attribuez-lui d’abord le rôle si nécessaire.');
                     }
                 }],
-            'rattachement' => ['required', Rule::in(['sg', 'region'])],
+            'rattachement' => ['required', Rule::in(array_keys(CircuitRegles::CIRCUITS))],
             'date_entree' => ['required', 'date'],
         ];
 
@@ -239,7 +253,9 @@ class AgentController extends Controller
             'structure_id.exists' => 'Cette structure n’existe pas ou n’est plus active.',
             'responsable_id.exists' => 'Ce responsable n’est pas un agent actif.',
             'responsable_id.not_in' => 'Un agent ne peut pas être son propre responsable.',
-            'rattachement.required' => 'Indiquez le circuit de décision (Secrétaire Général ou Chef de Région).',
+            'rattachement.required' => 'Indiquez l’autorité décisionnaire (Chef de Région, Secrétaire Général ou les deux).',
+            'rattachement.in' => 'Autorité décisionnaire inconnue.',
+            'fonction_autre.required_if' => 'Saisissez le nom de la nouvelle fonction.',
             'date_entree.required' => 'Saisissez la date d’entrée.',
             'date_naissance.before' => 'La date de naissance doit être passée.',
             'date_sortie.required_if' => 'Saisissez la date de sortie.',
@@ -249,6 +265,11 @@ class AgentController extends Controller
 
     private function listes(?Agent $agent): array
     {
+        // Fonctions actives, plus celle de l'agent même si elle a été désactivée depuis.
+        $fonctions = DB::table('fonctions')
+            ->where(fn ($q) => $q->where('actif', 1)->orWhere('id', $agent?->fonction_id))
+            ->orderBy('libelle')->get(['id', 'libelle', 'structure_id', 'rattachement']);
+
         $structures = DB::table('structures')
             ->where(fn ($q) => $q->where('actif', 1)->orWhere('id', $agent?->structure_id))
             ->orderBy('nom')->get(['id', 'nom', 'rattachement']);
@@ -263,10 +284,44 @@ class AgentController extends Controller
         return [
             'structures' => $structures->pluck('nom', 'id')->all(),
             'rattachements' => $structures->pluck('rattachement', 'id')->all(),
-            'fonctions' => DB::table('fonctions')->orderBy('libelle')->pluck('libelle', 'id')->all(),
+            'fonctions' => $fonctions->pluck('libelle', 'id')->all(),
+            // Aide à la saisie : structure et autorité habituelles de la fonction (la RH garde la main).
+            'fonctions_donnees' => $fonctions->mapWithKeys(fn ($f) => [$f->id => ['structure' => $f->structure_id, 'autorite' => $f->rattachement]])->all(),
             'responsables' => $responsables->mapWithKeys(fn ($r) => [$r->id => $r->nom_complet.($r->fonction ? ' — '.$r->fonction->libelle : '')])->all(),
             'suggestions' => CircuitRegles::suggestions($agent?->id),
         ];
+    }
+
+    /**
+     * « Autre » : la fonction saisie à la main est retrouvée (insensible à la casse et aux accents) ou créée,
+     * puis remplace la valeur du formulaire par son identifiant. La liste de fonctions reste donc ouverte.
+     */
+    private function resoudreFonction(array &$donnees): void
+    {
+        if (($donnees['fonction_id'] ?? null) !== self::FONCTION_AUTRE) {
+            $donnees['fonction_id'] = ($donnees['fonction_id'] ?? '') === '' ? null : (int) $donnees['fonction_id'];
+
+            return;
+        }
+
+        $libelle = mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $donnees['fonction_autre'])), 0, 120);
+        if (mb_strlen($libelle) < 2) {
+            throw ValidationException::withMessages(['fonction_autre' => 'Saisissez le nom de la nouvelle fonction.']);
+        }
+
+        $existante = DB::table('fonctions')->where('libelle', $libelle)->first();
+        if ($existante) {
+            if (! $existante->actif) {
+                DB::table('fonctions')->where('id', $existante->id)->update(['actif' => 1]);
+            }
+            $donnees['fonction_id'] = (int) $existante->id;
+
+            return;
+        }
+
+        $id = DB::table('fonctions')->insertGetId(['libelle' => $libelle, 'categorie' => 'autre', 'actif' => 1]);
+        AuditService::enregistrer('fonction_creee', null, null, ['id' => $id, 'libelle' => $libelle, 'origine' => 'fiche agent']);
+        $donnees['fonction_id'] = $id;
     }
 
     /** Le responsable ne peut pas être un de ses propres subordonnés (boucle dans la hiérarchie). */

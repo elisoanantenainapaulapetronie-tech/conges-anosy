@@ -45,6 +45,57 @@
     maj(true);
   });
 
+
+  // Saisie libre : le champ texte n'apparaît que si l'utilisateur choisit « Autre » (fonction, type, structure parente).
+  document.querySelectorAll('select[data-libre-champ]').forEach(function (liste) {
+    var zone = document.getElementById(liste.getAttribute('data-libre-champ') + '-zone');
+    var champ = document.getElementById(liste.getAttribute('data-libre-champ'));
+    var declencheur = liste.getAttribute('data-libre-valeur');
+    if (!zone || !champ) return;
+    function maj(focus) {
+      var visible = liste.value === declencheur;
+      zone.hidden = !visible;
+      champ.required = visible;
+      if (visible && focus) champ.focus();
+    }
+    liste.addEventListener('change', function () { maj(true); });
+    maj(false);
+  });
+
+  // Fonction choisie : proposer sa direction/son service habituel (si la fiche n'en a pas encore) et son autorité.
+  document.querySelectorAll('select[data-suggerer-poste]').forEach(function (fonction) {
+    var ids = fonction.getAttribute('data-suggerer-poste').split(',');
+    var structure = document.getElementById(ids[0]);
+    var autorite = document.getElementById(ids[1]);
+    fonction.addEventListener('change', function () {
+      var option = fonction.options[fonction.selectedIndex];
+      if (!option) return;
+      var s = option.getAttribute('data-structure');
+      var a = option.getAttribute('data-autorite');
+      if (s && structure && structure.value === '' && structure.querySelector('option[value="' + s + '"]')) {
+        structure.value = s;
+        structure.dispatchEvent(new Event('change'));   // propose aussi le responsable et l'autorité du service
+      }
+      if (a && autorite && autorite.querySelector('option[value="' + a + '"]')) {
+        autorite.value = a;
+        autorite.dispatchEvent(new Event('change'));
+      }
+    });
+  });
+
+  // Aperçu du parcours de la demande selon l'autorité décisionnaire choisie.
+  document.querySelectorAll('select[data-parcours-cible]').forEach(function (liste) {
+    var cible = document.getElementById(liste.getAttribute('data-parcours-cible'));
+    if (!cible) return;
+    function maj() {
+      var option = liste.options[liste.selectedIndex];
+      var texte = option && option.getAttribute('data-parcours');
+      cible.textContent = texte ? 'Parcours d’une demande : ' + texte : '';
+    }
+    liste.addEventListener('change', maj);
+    maj();
+  });
+
   // Copier le code d'activation affiché une seule fois.
   document.querySelectorAll('[data-copier]').forEach(function (bouton) {
     bouton.addEventListener('click', function () {

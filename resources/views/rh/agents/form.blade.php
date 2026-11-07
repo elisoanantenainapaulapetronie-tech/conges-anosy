@@ -37,7 +37,9 @@
                 <x-rh-champ nom="matricule" label="Matricule" :valeur="$agent->matricule"
                             aide="Facultatif. Sans matricule, un identifiant ANO-xxxxx est généré pour la connexion." />
                 <x-rh-liste nom="fonction_id" label="Fonction" :valeur="$agent->fonction_id" vide="— Aucune —" :options="$liste['fonctions']"
-                            aide="La fonction est un simple libellé : elle ne donne aucun droit." />
+                            :donnees="$liste['fonctions_donnees']" data-suggerer-poste="structure_id,rattachement"
+                            libre-champ="fonction_autre" libre-option="Autre fonction (la saisir)…" libre-label="Nouvelle fonction"
+                            aide="Absente de la liste ? Choisissez « Autre fonction » et saisissez-la : elle sera ajoutée à la liste. Une fonction est un libellé : elle ne donne aucun droit." />
                 <x-rh-champ nom="grade_categorie" label="Grade ou catégorie" :valeur="$agent->grade_categorie" />
                 <x-rh-liste nom="structure_id" label="Service ou direction" :requis="true" :valeur="$agent->structure_id" vide="— Choisir —"
                             :options="$liste['structures']" :donnees="$liste['rattachements']" data-synchro="rattachement" data-suggerer="responsable_id" />
@@ -45,8 +47,11 @@
                             :options="$liste['responsables']" :data-suggestions="json_encode($liste['suggestions'])"
                             aide="Un seul : en principe le Directeur de rattachement ; un chef de service seulement si vous le désignez. Pour un directeur : le Secrétaire Général. Il reçoit directement la demande d’avis de l’agent." />
                 <x-rh-liste nom="rattachement" label="Autorité décisionnaire" :requis="true" :valeur="$agent->rattachement"
-                            :options="['sg' => 'Secrétaire Général', 'region' => 'Chef de Région']"
-                            aide="Désignée à l’avance par la RH ; l’agent ne peut pas la modifier. La demande lui est transmise après l’avis et le contrôle RH. Proposée d’après le service ; pour un directeur : Chef de Région." />
+                            :options="\App\Services\CircuitRegles::CIRCUITS"
+                            :parcours="collect(array_keys(\App\Services\CircuitRegles::CIRCUITS))->mapWithKeys(fn ($c) => [$c => \App\Services\CircuitRegles::parcours($c)])->all()"
+                            data-parcours-cible="parcours-apercu"
+                            aide="Désignée à l’avance par la RH ; l’agent ne peut pas la modifier. « Les deux » : la demande passe d’abord par le Secrétaire Général, puis par le Chef de Région, sans étape sautée. Proposée d’après le service ; pour un directeur : Chef de Région." />
+                <p class="parcours" id="parcours-apercu" aria-live="polite" data-parcours-initial="{{ \App\Services\CircuitRegles::parcours(old('rattachement', $agent->rattachement ?: 'sg')) }}"></p>
                 <x-rh-champ nom="date_entree" label="Date d’entrée" type="date" :requis="true" :valeur="$agent->date_entree?->format('Y-m-d')" />
             </div>
         </section>

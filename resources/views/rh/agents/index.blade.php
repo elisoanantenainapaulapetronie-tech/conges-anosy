@@ -67,8 +67,13 @@
                         @foreach ($agents as $a)
                             <tr>
                                 <td>
-                                    <a href="{{ route('rh.agents.show', $a) }}"><strong>{{ $a->nom_complet }}</strong></a>
-                                    <span class="discret bloc">{{ $a->fonction?->libelle ?? '—' }}</span>
+                                    <div class="liste-agent">
+                                        <x-avatar :agent="$a" taille="sm" />
+                                        <div>
+                                            <a href="{{ route('rh.agents.show', $a) }}"><strong>{{ $a->nom_complet }}</strong></a>
+                                            <span class="discret bloc">{{ $a->fonction?->libelle ?? '—' }}</span>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>{{ $a->identifiant }}@if (! $a->matricule)<span class="discret bloc">sans matricule</span>@endif</td>
                                 <td>{{ $a->structure?->nom }}</td>

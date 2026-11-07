@@ -11,10 +11,13 @@
     ];
 @endphp
 @section('contenu')
-    <header class="entete">
-        <p class="entete__date">{{ now()->translatedFormat('l j F Y') }}</p>
-        <h1>Bonjour {{ $agent->prenoms ?: $agent->nom }}</h1>
-        <p class="poste">{{ $agent->fonction?->libelle }}@if ($agent->fonction && $agent->structure), @endif{{ $agent->structure?->nom }}</p>
+    <header class="entete entete--profil">
+        <x-avatar :agent="$agent" taille="lg" alt="Ma photo de profil" />
+        <div>
+            <p class="entete__date">{{ now()->translatedFormat('l j F Y') }}</p>
+            <h1>Bonjour {{ $agent->prenoms ?: $agent->nom }}</h1>
+            <p class="poste">{{ $agent->fonction?->libelle }}@if ($agent->fonction && $agent->structure), @endif{{ $agent->structure?->nom }}</p>
+        </div>
     </header>
 
     <section class="panneau" aria-labelledby="titre-solde">
@@ -61,7 +64,7 @@
             <dt>Fonction</dt><dd>{{ $agent->fonction?->libelle ?? '—' }}</dd>
             <dt>Service</dt><dd>{{ $agent->structure?->nom ?? '—' }}</dd>
             <dt>Responsable direct</dt><dd>{{ $agent->responsable?->nom_complet ?? '—' }}</dd>
-            <dt>Circuit de décision</dt><dd>{{ $agent->rattachement === 'region' ? 'Chef de Région' : 'Secrétaire Général' }}</dd>
+            <dt>Circuit de décision</dt><dd>{{ \App\Services\CircuitRegles::libelleCourt($agent->rattachement) }}</dd>
             <dt>Mes rôles</dt>
             <dd>
                 <span class="etiquette">Agent</span>

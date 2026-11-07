@@ -4,6 +4,9 @@
     <h1 class="auth__titre">Connexion</h1>
     <p class="auth__intro">Accédez à vos demandes et à votre solde de congé.</p>
 
+    @if (request()->boolean('expiree'))
+        <div class="alerte alerte--info" role="status">Votre session a pris fin après {{ (int) config('conges.inactivite_minutes', 30) }} minutes d’inactivité. Reconnectez-vous pour continuer.</div>
+    @endif
     @if (session('statut')) <div class="alerte alerte--ok" role="status">{{ session('statut') }}</div> @endif
 
     <form method="POST" action="{{ route('connexion') }}" data-envoi novalidate>

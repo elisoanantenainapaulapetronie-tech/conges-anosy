@@ -9,5 +9,6 @@
         data-avertir="2"
         data-ping="{{ route('session.prolonger') }}"
         data-sortie="{{ route('connexion') }}"
+        data-deconnexion="{{ route('deconnexion') }}"
         data-jeton="{{ csrf_token() }}" defer></script>
 <link rel="stylesheet" href="{{ asset('css/session.css') }}">
