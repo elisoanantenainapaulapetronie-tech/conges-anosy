@@ -1,0 +1,120 @@
+/* Organigramme (lot 4). Complète anosy.css et rh.css : mêmes variables, mêmes composants. */
+
+.org-actions{margin-top:0}
+.org-actions .bouton{margin-top:0}
+
+/* ---------- Schéma d'ensemble (arbre horizontal en CSS pur) ---------- */
+.schema{overflow-x:auto;padding:6px 4px 18px;scrollbar-width:thin}
+.schema:focus-visible{outline:3px solid var(--vert);outline-offset:2px}
+.schema ul{display:flex;justify-content:center;gap:0;margin:0;padding:22px 0 0;list-style:none;position:relative;width:max-content;min-width:100%}
+.schema > ul{padding-top:0}
+.schema li{position:relative;display:flex;flex-direction:column;align-items:center;padding:22px 8px 0}
+.schema li::before,.schema li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:22px;border-top:2px solid var(--bord-fort)}
+.schema li::after{right:auto;left:50%;border-left:2px solid var(--bord-fort)}
+.schema li:only-child::before,.schema li:only-child::after{display:none}
+.schema li:only-child{padding-top:0}
+.schema li:first-child::before,.schema li:last-child::after{border:0 none}
+.schema li:last-child::before{border-right:2px solid var(--bord-fort);border-radius:0 8px 0 0}
+.schema li:first-child::after{border-radius:8px 0 0 0}
+.schema ul ul::before{content:"";position:absolute;top:0;left:50%;height:22px;border-left:2px solid var(--bord-fort)}
+.schema > ul > li{padding-top:0}
+
+.carte{position:relative;display:flex;flex-direction:column;gap:3px;width:196px;min-height:96px;padding:14px 12px 10px;text-align:center;color:var(--encre);text-decoration:none;background:#fff;border:1px solid var(--bord);border-radius:10px;box-shadow:0 1px 3px rgba(10,59,42,.08);overflow:hidden;transition:box-shadow .15s,border-color .15s,transform .15s}
+.carte::before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:var(--vert)}
+a.carte:hover{border-color:var(--vert);box-shadow:0 4px 14px rgba(10,59,42,.16);transform:translateY(-1px)}
+.carte--sg::before{background:var(--vert)}
+.carte--region::before{background:var(--rouge)}
+.carte--sg_region::before{background:linear-gradient(90deg,var(--vert) 50%,var(--rouge) 50%)}
+.carte--chef{width:240px;min-height:84px;color:#fff;background:var(--vert-profond);border-color:var(--vert-profond)}
+.carte--chef::before{background:linear-gradient(90deg,var(--vert) 50%,var(--rouge) 50%);height:6px}
+.carte--chef .carte__resp{color:var(--or-pale)}
+.carte--moi{border-color:var(--or);box-shadow:0 0 0 3px var(--or-pale)}
+.carte--off{opacity:.6;border-style:dashed}
+.carte__nom{font-size:.9rem;font-weight:700;line-height:1.25}
+.carte__resp{font-size:.82rem;color:var(--encre-douce)}
+.carte__resp--vide{font-style:italic;color:#7A1A12}
+.carte--chef .carte__resp--vide{color:var(--or)}
+.carte__pied{margin-top:auto;padding-top:4px;font-size:.76rem;font-weight:600;color:var(--vert)}
+
+.legende{display:flex;flex-wrap:wrap;gap:6px 22px;margin:6px 0 0;font-size:.85rem;color:var(--encre-douce)}
+.legende__pastille{display:inline-block;width:22px;height:6px;margin-right:6px;vertical-align:middle;border-radius:3px}
+.legende__pastille--sg{background:var(--vert)}
+.legende__pastille--region{background:var(--rouge)}
+.legende__pastille--sg_region{background:linear-gradient(90deg,var(--vert) 50%,var(--rouge) 50%)}
+
+/* ---------- Détail par structure ---------- */
+.org-controles{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;margin-bottom:6px}
+.org-controles .bouton{margin-top:0}
+.org-controles__recherche{flex:1 1 280px}
+.org-controles input[type=search]{width:100%;min-height:44px;padding:0 14px;font:inherit;color:inherit;background:#fff;border:1.5px solid var(--bord-fort);border-radius:var(--rayon)}
+.org-controles input[type=search]:focus{outline:none;border-color:var(--vert);box-shadow:0 0 0 3px rgba(15,107,69,.25)}
+#org-resultat{min-height:1.4em;margin:6px 0 10px}
+
+.noeud__chef{display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;margin:4px 0 14px;padding:14px 16px;background:var(--vert-pale);border:1px solid var(--bord);border-left:5px solid var(--rouge);border-radius:10px}
+
+.noeuds{margin:0;padding:0 0 0 24px;list-style:none;border-left:2px solid var(--bord)}
+.noeuds--racine{padding-left:0;border-left:0}
+.noeud{position:relative;margin:10px 0}
+.noeud[hidden]{display:none}
+.noeuds:not(.noeuds--racine) > .noeud::before{content:"";position:absolute;left:-24px;top:24px;width:24px;border-top:2px solid var(--bord)}
+.noeud > details{background:#fff;border:1px solid var(--bord);border-radius:12px}
+.noeud--moi > details{border-color:var(--or);box-shadow:0 0 0 3px var(--or-pale)}
+.noeud--off > details{opacity:.7;border-style:dashed}
+.noeud--trouve > details > summary{background:var(--or-pale)}
+.noeud--cible > details{box-shadow:0 0 0 3px var(--or)}
+.noeud > details > .noeuds{margin:0 14px 14px 22px}
+
+.noeud summary{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 16px 12px 40px;cursor:pointer;list-style:none;position:relative;border-radius:12px}
+.noeud summary::-webkit-details-marker{display:none}
+.noeud summary::before{content:"";position:absolute;left:16px;top:50%;width:8px;height:8px;margin-top:-6px;border-right:2.5px solid var(--vert);border-bottom:2.5px solid var(--vert);transform:rotate(-45deg);transition:transform .15s}
+.noeud details[open] > summary::before{transform:rotate(45deg)}
+.noeud summary:hover{background:#F6F9F7}
+.noeud summary:focus-visible{outline:3px solid var(--vert);outline-offset:-3px}
+.noeud__nom{font-weight:700}
+.noeud__marques{display:flex;flex-wrap:wrap;gap:6px}
+.circuit--sg{background:var(--vert-pale);color:var(--vert-profond)}
+.circuit--region{background:var(--erreur-pale);color:#7A1A12}
+.circuit--sg_region{background:var(--or-pale);color:#6B5000}
+
+.noeud__corps{display:grid;gap:14px;padding:4px 16px 16px 40px}
+.personnes{display:flex;flex-wrap:wrap;gap:12px 28px}
+.personne{display:flex;align-items:center;gap:12px}
+.personne strong{display:block;line-height:1.25}
+.personne span{display:block;font-size:.88rem;color:var(--encre-douce)}
+.vide-resp{margin:0;font-style:italic;color:#7A1A12}
+
+.postes{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.poste-ligne{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;padding:10px 14px;background:#F6F9F7;border:1px solid var(--bord);border-radius:8px}
+.poste-ligne strong{display:block;line-height:1.25}
+.poste-ligne span{display:block;font-size:.88rem;color:var(--encre-douce)}
+.poste-ligne--vacant{background:var(--or-pale);border:1.5px dashed var(--or)}
+.poste-ligne .poste-ligne__vacant{font-weight:700;color:#6B5000}
+
+.noeud .etiquettes{margin:0}
+.noeud__actions{display:flex;flex-wrap:wrap;gap:6px 20px;margin:0;font-size:.92rem;font-weight:600}
+
+@media (max-width:640px){
+  .noeuds{padding-left:14px}
+  .noeuds:not(.noeuds--racine) > .noeud::before{left:-14px;width:14px}
+  .noeud summary{padding-left:36px}
+  .noeud__corps{padding-left:16px}
+  .noeud > details > .noeuds{margin-left:10px;margin-right:8px}
+  .carte{width:170px}
+}
+
+/* ---------- Impression : tout est déplié, sans menu ni boutons ---------- */
+@page{size:A4 landscape;margin:12mm}
+@media print{
+  .menu,.barre,.rideau,.saut,.org-controles,.org-actions,.org-tuiles,.rh-onglets,.noeud__actions,#org-resultat,.actions-cellule,.coque__corps::before{display:none!important}
+  body{background:#fff}
+  .coque{display:block}
+  .contenu{padding:0}
+  .panneau{border:0;padding:0;box-shadow:none}
+  .schema{overflow:visible}
+  .schema ul{width:auto}
+  .carte{box-shadow:none;break-inside:avoid}
+  .noeud{break-inside:avoid}
+  .noeud > details{border-color:#999}
+  .noeud summary::before{display:none}
+  a{color:inherit;text-decoration:none}
+}

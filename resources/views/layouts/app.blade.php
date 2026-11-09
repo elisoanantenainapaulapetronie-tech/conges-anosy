@@ -8,9 +8,6 @@
     @include('partials.polices')
     <link rel="stylesheet" href="{{ asset('css/anosy.css') }}">
     <link rel="stylesheet" href="{{ asset('css/identite.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/identite.css') }}">
-            <style>:root{--img-region:url('{{ asset('images/fort-dauphin-bandeau.jpg') }}')}</style>
-
     {{-- Vue de Fort-Dauphin du bandeau d'en-tête : déclarée ici, une seule fois, pour tous les espaces --}}
     <style>:root{--img-region:url('{{ asset('images/fort-dauphin-bandeau.jpg') }}')}</style>
 </head>
@@ -35,6 +32,18 @@
                     <a href="{{ route('accueil') }}" @if (request()->routeIs('accueil')) aria-current="page" @endif>
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
                         Accueil
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('organigramme') }}" @if (request()->routeIs('organigramme')) aria-current="page" @endif>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="4" rx="1"/><rect x="2" y="17" width="6" height="4" rx="1"/><rect x="16" y="17" width="6" height="4" rx="1"/><path d="M12 7v5M5 17v-5h14v5"/></svg>
+                        Organigramme
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('solde') }}" @if (request()->routeIs('solde')) aria-current="page" @endif>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 15h3"/></svg>
+                        Mon solde
                     </a>
                 </li>
                 @if ($moi->aLeRole('rh_gestionnaire', 'rh_responsable'))

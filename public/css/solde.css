@@ -1,0 +1,39 @@
+/* Lot 5 : soldes et décompte. S'appuie sur les variables et classes de anosy.css / rh.css. */
+.selecteur-annee{display:flex;align-items:center;gap:10px}
+.selecteur-annee label{font-weight:600;color:var(--encre-douce)}
+.selecteur-annee select{height:44px;min-width:110px}
+
+.tuiles--solde{grid-template-columns:minmax(230px,1.3fr) repeat(auto-fit,minmax(160px,1fr))}
+.tuile--principale{background:var(--vert-pale);border-top-width:5px}
+.tuile--principale .tuile__chiffre{font-size:3.2rem}
+.tuile__detail{display:block;margin-top:6px;font-size:.8rem;color:var(--encre-douce)}
+
+.solde-formule{margin:0 0 20px;padding:12px 16px;font-size:.95rem;color:var(--encre-douce);background:#fff;border:1px dashed var(--bord);border-radius:10px}
+.solde-formule strong{color:var(--vert-profond)}
+
+.panneau__titre{margin:0;padding:18px 20px 6px}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.montant--plus{color:var(--vert-profond);font-weight:700}
+.montant--moins{color:var(--erreur);font-weight:700}
+.montant--nul{color:var(--encre-douce)}
+.tableau--registre td{vertical-align:top}
+
+.liste-simple{margin:0 0 12px;padding-left:18px}
+.liste-simple li{margin:6px 0}
+
+.proposition__infos{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px 24px;margin:0 0 16px}
+.proposition__infos dt{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--encre-douce)}
+.proposition__infos dd{margin:2px 0 0}
+
+/* Simulateur de décompte */
+.simulation{margin-top:20px;padding:18px 20px;background:var(--vert-pale);border:1px solid var(--bord);border-radius:12px}
+.simulation__total{font-family:var(--serif);font-size:2.2rem;font-weight:700;color:var(--vert-profond);line-height:1.1}
+.simulation__soldes{margin:10px 0 0;padding:0;list-style:none}
+.simulation__soldes li{margin:4px 0}
+.simulation__avert{margin:12px 0 0;padding:10px 14px;background:var(--or-pale);border-radius:8px;color:#6B5000}
+.simulation__erreur{color:var(--erreur);font-weight:600}
+.simulation__jours{width:100%;margin-top:14px;border-collapse:collapse;font-size:.9rem}
+.simulation__jours th,.simulation__jours td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--bord)}
+.simulation__jours .jour--non{color:var(--encre-douce);background:rgba(0,0,0,.03)}
+.simulation__jours .jour--demi{background:var(--or-pale)}
+@media (max-width:640px){.tuile--principale .tuile__chiffre{font-size:2.6rem}.selecteur-annee{width:100%}}

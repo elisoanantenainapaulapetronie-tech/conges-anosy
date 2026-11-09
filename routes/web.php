@@ -36,6 +36,9 @@ Route::middleware('auth')->group(function () {
     // Exemple de route protégée par rôle (à remplacer par l'espace RH) :
     require __DIR__.'/rh.php';
      require __DIR__.'/photos.php';
+     require __DIR__.'/organigramme.php';
+ require __DIR__.'/soldes.php';
+
 
 
 });

@@ -59,7 +59,14 @@ class StructureController extends Controller
     {
         $this->exigerRhResponsable();
 
-        return view('rh.structures.form', $this->donneesFormulaire(new \stdClass));
+        // Depuis l'organigramme : « Ajouter une sous-structure » propose la structure parente (?parent=ID).
+        $structure = new \stdClass;
+        if (($parent = request()->integer('parent')) && ($ligne = DB::table('structures')->where('id', $parent)->first())) {
+            $structure->parent_id = (int) $ligne->id;
+            $structure->rattachement = $ligne->rattachement; // même circuit que la structure parente, modifiable
+        }
+
+        return view('rh.structures.form', $this->donneesFormulaire($structure));
     }
 
     public function store(Request $request): RedirectResponse

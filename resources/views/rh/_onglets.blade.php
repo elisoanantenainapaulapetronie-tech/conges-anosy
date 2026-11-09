@@ -8,6 +8,9 @@
         <li><a href="{{ route('rh.agents.index') }}" @if (($actif ?? '') === 'agents') aria-current="page" @endif>Agents</a></li>
         <li><a href="{{ route('rh.structures.index') }}" @if (($actif ?? '') === 'structures') aria-current="page" @endif>Organisation</a></li>
         <li><a href="{{ route('rh.fonctions.index') }}" @if (($actif ?? '') === 'fonctions') aria-current="page" @endif>Fonctions</a></li>
+        <li><a href="{{ route('rh.soldes.index') }}" @if (in_array($actif ?? '', ['soldes'], true)) aria-current="page" @endif>Soldes</a></li>
+        <li><a href="{{ route('rh.jours-feries.index') }}" @if (($actif ?? '') === 'jours-feries') aria-current="page" @endif>Jours fériés</a></li>
+        <li><a href="{{ route('organigramme') }}" @if (($actif ?? '') === 'organigramme') aria-current="page" @endif>Organigramme</a></li>
     </ul>
 </nav>
 
