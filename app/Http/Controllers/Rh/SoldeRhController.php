@@ -9,7 +9,9 @@ use App\Models\Agent;
 use App\Models\SoldeProposition;
 use App\Policies\SoldePolicy;
 use App\Services\AuditService;
+use App\Services\AcquisitionService;
 use App\Services\DecompteService;
+use App\Services\ImputationService;
 use App\Services\NotificationService;
 use App\Services\SoldeService;
 use Illuminate\Http\RedirectResponse;
@@ -59,8 +61,10 @@ class SoldeRhController extends Controller
             ->keyBy('agent_id');
         $attente = DB::table('demandes as d')->join('types_demande as t', 't.id', '=', 'd.type_demande_id')
             ->whereYear('d.date_debut', $annee)->whereIn('d.statut', SoldeService::STATUTS_EN_ATTENTE)->where('t.decompte_solde', 'oui')
-            ->groupBy('d.agent_id')->pluck(DB::raw('SUM(d.duree_jours)'), 'd.agent_id');
-        $propositions = DB::table('soldes_propositions')->where('statut', 'en_attente')->groupBy('agent_id')->pluck(DB::raw('COUNT(*)'), 'agent_id');
+            ->groupBy('d.agent_id')
+            ->get(['d.agent_id', DB::raw('SUM(d.duree_jours) AS jours')])->pluck('jours', 'agent_id');
+        $propositions = DB::table('soldes_propositions')->where('statut', 'en_attente')->groupBy('agent_id')
+            ->get(['agent_id', DB::raw('COUNT(*) AS nombre')])->pluck('nombre', 'agent_id');
 
         $lignes = $agents->map(function ($a) use ($soldes, $attente, $propositions) {
             $s = $soldes->get($a->id);
@@ -116,6 +120,7 @@ class SoldeRhController extends Controller
                 ->where('p.agent_id', $agent->id)->where('p.statut', '!=', 'en_attente')->orderByDesc('p.controle_le')->limit(10)
                 ->get(['p.*', 'a.nom as auteur_nom', 'a.prenoms as auteur_prenoms']),
             'peutProposer' => $peutProposer,
+            'lots' => ImputationService::tableau($agent->id),
             'natures' => $this->naturesPermises($moi),
             'controleur' => self::CONTROLEURS[$controleur] ?? $controleur,
         ]);
@@ -209,19 +214,22 @@ class SoldeRhController extends Controller
         return back()->with('statut', $valide ? 'Proposition validée : le mouvement est inscrit au registre.' : 'Proposition rejetée.');
     }
 
-    /** Droit annuel de l'année pour tous les agents actifs (RH responsable). Ne crédite jamais deux fois. */
+    /**
+     * Acquisition mensuelle (lot 5 ter) : rattrape les mois manquants jusqu'au mois en cours, pour tous les agents actifs
+     * (RH responsable). Ne crédite jamais deux fois le même mois.
+     */
     public function crediter(Request $request): RedirectResponse
     {
         $moi = $request->user()->agent;
         if (! $moi->aLeRole('rh_responsable')) {
             AuditService::refus('acces_refuse_crediter_droits', null, ['url' => $request->path()]);
-            abort(403, 'Le crédit du droit annuel est réservé à la RH responsable.');
+            abort(403, 'Le crédit de l’acquisition mensuelle est réservé à la RH responsable.');
         }
-        $annee = $this->annee($request->input('annee'));
-        $r = SoldeService::crediterTous($annee);
+        $r = AcquisitionService::rattraper(date('Y-m'));
 
-        return redirect()->route('rh.soldes.index', ['annee' => $annee])->with('statut',
-            "Droit annuel {$annee} : {$r['credites']} agent(s) crédité(s) pour ".DecompteService::libelle($r['jours']).". {$r['ignores']} ignoré(s) (déjà crédités, solde initial existant ou aucun mois acquis).");
+        return redirect()->route('rh.soldes.index', ['annee' => $this->annee($request->input('annee'))])->with('statut',
+            "Acquisition mensuelle jusqu’à ".AcquisitionService::libelleMois($r['jusqua']).' : '.$r['mois'].' mois crédité(s) pour '.$r['agents'].' agent(s), soit '
+            .DecompteService::libelle($r['jours']).'. Les mois déjà crédités, les années fixées par un solde initial et les mois non acquis sont ignorés.');
     }
 
     // ------------------------------------------------------------------

@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\DB;
  *   solde disponible   = droits + report - jours réservés - jours consommés (somme de delta_disponible)
  *   solde prévisionnel = solde disponible - jours des demandes en attente de décision
  *
+ * Depuis le lot 5 ter : un solde par LOT (année d'acquisition), consommé du plus ancien au plus récent (ImputationService),
+ * et un droit acquis chaque mois (AcquisitionService).
+ *
  * Deux familles de mouvements :
  *   - MANUELS (solde initial, correction, report, indemnisation, perte) : d'abord une PROPOSITION, contrôlée par une
  *     autre personne (proposer, puis controler). Personne n'écrit ni ne contrôle son propre solde.
@@ -120,7 +123,7 @@ class SoldeService
             ->leftJoin('agents as a', 'a.id', '=', 'm.auteur_id')
             ->where('m.agent_id', $agentId)->where('m.annee', $annee)
             ->orderBy('m.created_at')->orderBy('m.id')
-            ->get(['m.id', 'm.created_at', 'm.type_mouvement', 'm.delta_disponible', 'm.delta_reserve', 'm.delta_consomme',
+            ->get(['m.id', 'm.created_at', 'm.periode', 'm.type_mouvement', 'm.delta_disponible', 'm.delta_reserve', 'm.delta_consomme',
                 'm.motif', 'd.reference as demande', 'a.nom as auteur_nom', 'a.prenoms as auteur_prenoms']);
 
         $solde = 0.0;
@@ -131,7 +134,8 @@ class SoldeService
                 'id' => (int) $l->id,
                 'date' => substr((string) $l->created_at, 0, 10),
                 'type' => $l->type_mouvement,
-                'libelle' => self::TYPES[$l->type_mouvement] ?? $l->type_mouvement,
+                'libelle' => ($l->type_mouvement === 'droit_annuel' && $l->periode) ? 'Acquisition mensuelle' : (self::TYPES[$l->type_mouvement] ?? $l->type_mouvement),
+                'periode' => $l->periode,
                 'jours' => (float) $l->delta_disponible,
                 'reserve' => (float) $l->delta_reserve,
                 'consomme' => (float) $l->delta_consomme,
@@ -331,8 +335,11 @@ class SoldeService
     }
 
     // ======================================================================
-    // Droit annuel (automatique)
+    // Droit annuel EN BLOC (ancien mode du lot 5)
     // ======================================================================
+    // Depuis le lot 5 ter, le droit s'acquiert mois par mois (AcquisitionService, 2,5 jours par mois). Les méthodes
+    // ci-dessous sont conservées pour les années déjà créditées en bloc et pour le contrôle lot5:verifier ; l'écran RH
+    // et la commande conges:acquisition n'y font plus appel.
 
     /** Mois entiers travaillés dans l'année : droit annuel / 12 par mois (30 j par an = 2,5 j par mois). */
     public static function moisTravailles(\DateTimeInterface|string $entree, \DateTimeInterface|string|null $sortie, int $annee): int
@@ -418,8 +425,9 @@ class SoldeService
     // ======================================================================
 
     /**
-     * Réserve les jours d'une demande validée : disponible -, réservé +. Sans effet si le type de demande ne décompte pas
-     * le solde ("non") ou si la RH n'a pas décidé d'imputer ("sur_decision" : passer $imputer = true).
+     * Réserve les jours d'une demande validée : disponible -, réservé +, lot par lot (le plus ancien d'abord, lot 5 ter).
+     * Sans effet si le type de demande ne décompte pas le solde ("non") ou si la RH n'a pas décidé d'imputer
+     * ("sur_decision" : passer $imputer = true). Les jours qui ne seront acquis que plus tard sont réservés au crédit mensuel.
      *
      * @return bool vrai si des jours ont été réservés
      * @throws SoldeException solde insuffisant (sauf $forcer), demande déjà réservée, durée incohérente
@@ -431,7 +439,8 @@ class SoldeService
             if ($type->decompte_solde === 'non' || ($type->decompte_solde === 'sur_decision' && $imputer !== true)) {
                 return false;
             }
-            if (DB::table('soldes_mouvements')->where('demande_id', $demandeId)->where('type_mouvement', 'reservation')->exists()) {
+            if (DB::table('soldes_mouvements')->where('demande_id', $demandeId)->where('type_mouvement', 'reservation')->exists()
+                || DB::table('demande_imputations')->where('demande_id', $demandeId)->exists()) {
                 throw new SoldeException('Les jours de cette demande sont déjà réservés.');
             }
 
@@ -441,20 +450,8 @@ class SoldeService
                     .DecompteService::libelle($calcul['total']).') : recalculez la demande.');
             }
 
-            foreach ($calcul['par_annee'] as $annee => $jours) {
-                if ($jours <= 0) {
-                    continue;
-                }
-                $disponible = self::situation((int) $d->agent_id, (int) $annee)['disponible'];
-                if (! $forcer && $disponible < $jours) {
-                    throw new SoldeException("Solde {$annee} insuffisant : ".DecompteService::libelle($disponible).' disponibles pour '.DecompteService::libelle($jours).' demandés.');
-                }
-                DB::table('soldes_mouvements')->insert([
-                    'agent_id' => $d->agent_id, 'annee' => $annee, 'type_mouvement' => 'reservation',
-                    'delta_disponible' => -$jours, 'delta_reserve' => $jours, 'delta_consomme' => 0,
-                    'demande_id' => $demandeId, 'motif' => "Réservation : demande {$d->reference}", 'auteur_id' => null, 'created_at' => now(),
-                ]);
-            }
+            // Lot 5 ter : chaque jour est débité du plus ancien lot ; une ligne de registre par lot touché.
+            ImputationService::reserverDemande($d, $calcul, $forcer);
 
             return true;
         });
@@ -473,13 +470,14 @@ class SoldeService
     }
 
     /**
-     * Contrôle à la soumission (partie 8.8) : durée, solde prévisionnel, plafond par demande, maximum de demandes par an.
-     * Ne modifie rien. Un solde insuffisant bloque ; un dépassement de plafond ou de nombre passe en dérogation.
+     * Contrôle à la soumission (partie 8.8) : durée, solde prévisionnel PAR LOT, plafond par demande, maximum de demandes par an.
+     * Ne modifie rien. Un solde insuffisant bloque (paramètre solde_insuffisant_mode : bloquer ou alerter) ; un dépassement
+     * de plafond ou de nombre passe en dérogation. $ignorerDemandeId : la demande elle-même, quand on la recontrôle à la décision.
      *
-     * @return array{duree:float, par_annee:array<int,float>, decompte_solde:string, suffisant:bool, previsionnel:?float,
+     * @return array{duree:float, par_annee:array<int,float>, decompte_solde:string, suffisant:bool, bloquant:bool, simulation:?array, previsionnel:?float,
      *               derogation:bool, raisons:array<int,string>, avertissements:array<int,string>}
      */
-    public static function controlerSoumission(int $agentId, string $typeCode, string $debut, string $fin, string $demiDebut = 'journee', string $demiFin = 'journee'): array
+    public static function controlerSoumission(int $agentId, string $typeCode, string $debut, string $fin, string $demiDebut = 'journee', string $demiFin = 'journee', ?int $ignorerDemandeId = null): array
     {
         $type = DB::table('types_demande')->where('code', $typeCode)->first() ?? throw new SoldeException('Type de demande inconnu.');
         $calcul = DecompteService::compter($debut, $fin, $demiDebut, $demiFin);
@@ -487,14 +485,16 @@ class SoldeService
         $suffisant = true;
         $previsionnel = null;
         $raisons = [];
+        $bloquant = false;
+        $simulation = null;
         if ($type->decompte_solde === 'oui') {
-            foreach ($calcul['par_annee'] as $annee => $jours) {
-                $p = self::situation($agentId, (int) $annee)['previsionnel'];
-                $previsionnel = $previsionnel === null ? $p : min($previsionnel, $p);
-                if ($jours > $p) {
-                    $suffisant = false;
-                    $raisons[] = "Solde prévisionnel {$annee} insuffisant : ".DecompteService::libelle($p).' pour '.DecompteService::libelle($jours).' demandés.';
-                }
+            // Lot 5 ter : débit par lot (le plus ancien d'abord), sur les jours acquis à la date de chaque jour.
+            $simulation = ImputationService::simuler($agentId, $calcul, $ignorerDemandeId);
+            $suffisant = $simulation['suffisant'];
+            $bloquant = $simulation['bloquant'];
+            $previsionnel = $simulation['total_avant'];
+            foreach ($simulation['messages'] as $m) {
+                $raisons[] = $m;
             }
         }
 
@@ -517,8 +517,8 @@ class SoldeService
 
         return [
             'duree' => $calcul['total'], 'par_annee' => $calcul['par_annee'], 'decompte_solde' => $type->decompte_solde,
-            'suffisant' => $suffisant, 'previsionnel' => $previsionnel, 'derogation' => $derogation,
-            'raisons' => $raisons, 'avertissements' => $calcul['avertissements'],
+            'suffisant' => $suffisant, 'bloquant' => $bloquant, 'previsionnel' => $previsionnel, 'derogation' => $derogation,
+            'simulation' => $simulation, 'raisons' => $raisons, 'avertissements' => $calcul['avertissements'],
         ];
     }
 
@@ -538,6 +538,15 @@ class SoldeService
         return DB::transaction(function () use ($demandeId, $type, $motif) {
             [$d] = self::demande($demandeId);
             $total = 0.0;
+
+            // Jours « différés » (pas encore acquis) : une libération les annule ; on ne peut pas consommer ce qui n'est pas réservé.
+            $differees = DB::table('demande_imputations')->where('demande_id', $demandeId)->where('differee', 1);
+            if ($type === 'consommation' && (clone $differees)->exists()) {
+                throw new SoldeException('Une partie des jours de la demande '.$d->reference.' n’est pas encore acquise : elle ne peut pas être consommée.');
+            }
+            if ($type === 'liberation') {
+                $differees->delete();
+            }
 
             $restes = DB::table('soldes_mouvements')->where('demande_id', $demandeId)->groupBy('annee')
                 ->get(['annee', DB::raw('SUM(delta_reserve) AS reste')]);

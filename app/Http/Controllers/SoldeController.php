@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\DecompteService;
+use App\Services\ImputationService;
 use App\Services\SoldeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,10 +30,11 @@ class SoldeController extends Controller
             'annees' => $annees,
             'situation' => SoldeService::situation($agent->id, $annee),
             'registre' => SoldeService::registre($agent->id, $annee),
+            'lots' => ImputationService::tableau($agent->id),
         ]);
     }
 
-    /** Simulation de durée (sans rien enregistrer) : jours ouvrés, fériés, demi-journées, effet sur le solde. */
+    /** Simulation de durée (sans rien enregistrer) : jours ouvrés, fériés, demi-journées, débit par lot, manque éventuel. */
     public function simuler(Request $request): JsonResponse
     {
         $donnees = $request->validate([
@@ -71,6 +73,8 @@ class SoldeController extends Controller
             'lignes' => $calcul['lignes'],
             'soldes' => $soldes,
             'avertissements' => $calcul['avertissements'],
+            // Lot 5 ter : débit par lot (le plus ancien d'abord), manque, date atteignable.
+            'imputation' => ImputationService::simuler($agentId, $calcul),
         ]);
     }
 }

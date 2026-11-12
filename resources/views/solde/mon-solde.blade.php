@@ -4,7 +4,7 @@
     <header class="entete entete--action">
         <div>
             <h1>Mon solde de congé</h1>
-            <p class="poste">Votre solde est la somme d’un registre de mouvements : chaque jour ajouté ou retiré y est inscrit, avec sa date et son auteur.</p>
+            <p class="poste">Vos jours s’acquièrent chaque mois. Votre solde est la somme d’un registre de mouvements : chaque jour ajouté ou retiré y est inscrit, avec sa date et son auteur.</p>
         </div>
         <form method="GET" action="{{ route('solde') }}" class="selecteur-annee">
             <label for="annee">Année</label>
@@ -15,11 +15,13 @@
         </form>
     </header>
 
+    @include('partials.solde-lots', ['lots' => $lots])
+
     @include('partials.solde-situation', ['situation' => $situation, 'registre' => $registre, 'annee' => $annee])
 
     <section class="panneau" aria-labelledby="t-simul">
-        <h2 id="t-simul">Combien de jours vais-je décompter ?</h2>
-        <p class="panneau__note">Simulation : rien n’est enregistré. Les samedis, dimanches et jours fériés ne sont pas décomptés.</p>
+        <h2 id="t-simul">Combien de jours vais-je décompter, et sur quel lot ?</h2>
+        <p class="panneau__note">Simulation : rien n’est enregistré. Les samedis, dimanches et jours fériés ne sont pas décomptés. Les jours sont pris sur le lot le plus ancien, et seuls les jours acquis à la date de chaque jour comptent.</p>
         <form id="simulateur" method="POST" action="{{ route('decompte.simuler') }}" novalidate>
             @csrf
             <div class="grille-form">

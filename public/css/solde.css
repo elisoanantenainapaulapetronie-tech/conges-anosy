@@ -37,3 +37,20 @@
 .simulation__jours .jour--non{color:var(--encre-douce);background:rgba(0,0,0,.03)}
 .simulation__jours .jour--demi{background:var(--or-pale)}
 @media (max-width:640px){.tuile--principale .tuile__chiffre{font-size:2.6rem}.selecteur-annee{width:100%}}
+
+/* Lot 5 ter : lots par année d'acquisition et débit par lot */
+.alerte--attention{background:var(--erreur-pale);border-color:var(--erreur);color:#7A1A12}
+.lots__note{padding:0 20px}
+.tableau--lots th[scope=row]{font-weight:700}
+.tableau--lots tfoot th,.tableau--lots tfoot td{border-top:2px solid var(--bord);font-weight:700}
+.tableau--lots .lot--premier{background:var(--or-pale)}
+.lots__projection{margin:0;padding:14px 20px 18px;font-size:.92rem;color:var(--encre-douce)}
+.simulation__civile{margin:6px 0 0;color:var(--encre-douce)}
+.simulation__titre{margin:18px 0 8px;font-size:1rem}
+.simulation__lots{width:100%;border-collapse:collapse;font-size:.92rem}
+.simulation__lots th,.simulation__lots td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--bord)}
+.simulation__lots .num{text-align:right;font-variant-numeric:tabular-nums}
+.simulation__lots .lot--debite{background:#fff}
+.simulation__ok{margin:10px 0 0;color:var(--vert-profond);font-weight:600}
+.simulation__issues-titre{margin:10px 0 2px;font-weight:600}
+.simulation__issues{margin:0;padding-left:18px}

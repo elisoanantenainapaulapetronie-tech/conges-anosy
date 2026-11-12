@@ -1,0 +1,6 @@
+// A AJOUTER A LA FIN du fichier routes/console.php (Laravel 12), sans rien supprimer :
+
+use Illuminate\Support\Facades\Schedule;
+
+// Lot 5 ter : acquisition mensuelle des conges (2,5 jours par mois), le 1er de chaque mois.
+Schedule::command('conges:acquisition')->monthlyOn(1, '00:30')->withoutOverlapping();

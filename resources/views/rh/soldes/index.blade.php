@@ -9,10 +9,10 @@
         </div>
         @if ($peutCrediter)
             <form method="POST" action="{{ route('rh.soldes.crediter') }}"
-                  onsubmit="return confirm('Créditer le droit annuel {{ $annee }} à tous les agents actifs qui ne l’ont pas encore ?')">
+                  onsubmit="return confirm('Lancer l’acquisition mensuelle jusqu’au mois en cours pour tous les agents actifs ? Les mois déjà crédités sont ignorés.')">
                 @csrf
                 <input type="hidden" name="annee" value="{{ $annee }}">
-                <button type="submit" class="bouton bouton--ligne">Créditer le droit annuel {{ $annee }}</button>
+                <button type="submit" class="bouton bouton--ligne">Lancer l’acquisition mensuelle</button>
             </form>
         @endif
     </header>

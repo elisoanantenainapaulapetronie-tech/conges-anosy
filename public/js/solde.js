@@ -48,20 +48,51 @@
         });
     });
 
+    function nombre(v) {
+        return Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+    }
+
     function rendre(d) {
         var racine = document.createDocumentFragment();
         racine.appendChild(el('div', 'simulation__total', d.total_libelle));
         racine.appendChild(el('p', null, 'décomptés sur ' + d.calendaires + ' jour(s) du calendrier (week-ends et jours fériés exclus).'));
 
         if (d.soldes.length) {
-            var liste = el('ul', 'simulation__soldes');
-            d.soldes.forEach(function (s) {
-                var texte = s.enregistre
-                    ? 'Solde prévisionnel ' + s.annee + ' : ' + s.previsionnel + ' j → ' + s.apres + ' j après cette absence' + (s.apres < 0 ? ' (insuffisant)' : '') + '.'
-                    : 'Aucun solde enregistré pour ' + s.annee + '.';
-                liste.appendChild(el('li', s.apres < 0 && s.enregistre ? 'simulation__erreur' : null, texte));
+            var civiles = el('p', 'simulation__civile', 'Par année civile : ' + d.soldes.map(function (s) { return s.jours_libelle + ' en ' + s.annee; }).join(', ') + '.');
+            racine.appendChild(civiles);
+        }
+
+        var imp = d.imputation;
+        if (imp) {
+            racine.appendChild(el('h3', 'simulation__titre', 'Débit par lot (le plus ancien d’abord)'));
+            var lots = el('table', 'simulation__lots');
+            var teteLots = el('tr');
+            ['Lot', 'Disponible avant', 'Débit', 'Dont provisoire', 'Disponible après'].forEach(function (t, i) { teteLots.appendChild(el('th', i ? 'num' : null, t)); });
+            lots.appendChild(teteLots);
+            imp.lots.forEach(function (l) {
+                if (l.debit_reel === 0 && l.debit_provisoire === 0 && l.avant === 0) { return; }
+                var tr = el('tr', l.debit_reel + l.debit_provisoire > 0 ? 'lot--debite' : null);
+                tr.appendChild(el('th', null, String(l.annee)));
+                tr.appendChild(el('td', 'num', nombre(l.avant)));
+                tr.appendChild(el('td', 'num', l.debit_reel + l.debit_provisoire > 0 ? '− ' + nombre(l.debit_reel + l.debit_provisoire) : '0'));
+                tr.appendChild(el('td', 'num', l.debit_provisoire > 0 ? nombre(l.debit_provisoire) : '—'));
+                tr.appendChild(el('td', 'num', nombre(l.apres)));
+                lots.appendChild(tr);
             });
-            racine.appendChild(liste);
+            racine.appendChild(lots);
+
+            if (imp.suffisant && imp.provisoire === 0) {
+                racine.appendChild(el('p', 'simulation__ok', 'Votre solde couvre cette période.'));
+            }
+            imp.messages.forEach(function (m) {
+                racine.appendChild(el('p', imp.suffisant ? 'simulation__avert' : 'simulation__erreur', m));
+            });
+            if (imp.issues.length) {
+                racine.appendChild(el('p', 'simulation__issues-titre', 'Que faire ?'));
+                var issues = el('ul', 'simulation__issues');
+                imp.issues.forEach(function (t) { issues.appendChild(el('li', null, t)); });
+                racine.appendChild(issues);
+            }
         }
         d.avertissements.forEach(function (a) { racine.appendChild(el('p', 'simulation__avert', a)); });
 

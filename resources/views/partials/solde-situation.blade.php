@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="{{ asset('css/solde.css') }}">
 
 @unless ($situation['a_des_mouvements'])
-    <div class="alerte alerte--info" role="status">Aucun solde n’est encore enregistré pour {{ $annee }}. La RH l’inscrit au registre (solde initial ou droit annuel).</div>
+    <div class="alerte alerte--info" role="status">Aucun solde n’est encore enregistré pour {{ $annee }}. Les jours s’acquièrent chaque mois (le 1er du mois) ; la RH peut aussi inscrire un solde initial.</div>
 @endunless
 
 <div class="tuiles tuiles--solde">
@@ -41,7 +41,7 @@
 </div>
 
 <p class="solde-formule">
-    {{ $annee }} : droit acquis <strong>{{ $nb($situation['acquis']) }}</strong>
+    Lot {{ $annee }} : droits acquis <strong>{{ $nb($situation['acquis']) }}</strong>
     + report <strong>{{ $nb($situation['report']) }}</strong>
     @if ($situation['ajustements'] != 0) + ajustements <strong>{{ $signe($situation['ajustements']) }}</strong> @endif
     − réservés <strong>{{ $nb($situation['reserves']) }}</strong>

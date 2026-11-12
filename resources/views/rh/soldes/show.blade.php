@@ -17,6 +17,8 @@
     @include('rh._onglets', ['actif' => 'soldes'])
     <p><a href="{{ route('rh.soldes.index', ['annee' => $annee]) }}">← Tous les soldes</a> · <a href="{{ route('rh.agents.show', $agent->id) }}">Fiche de l’agent</a></p>
 
+    @include('partials.solde-lots', ['lots' => $lots])
+
     @include('partials.solde-situation', ['situation' => $situation, 'registre' => $registre, 'annee' => $annee])
 
     @if ($enAttente->isNotEmpty())
