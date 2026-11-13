@@ -46,10 +46,10 @@
                 @csrf
                 <div class="grille-form">
                     <x-rh-liste nom="nature" label="Type de mouvement" :requis="true" :valeur="old('nature')" vide="— Choisir —" :options="$natures"
-                                aide="Report, indemnisation et perte : réservés à la RH responsable." />
+                                aide="Solde initial : jours acquis avant la mise en service (y compris les reliquats des années passées). Correction : ajuste un solde par erreur constatée." />
                     <x-rh-liste nom="annee" label="Année concernée" :requis="true" :valeur="old('annee', $annee)" :options="array_combine($annees, $annees)" />
                     <x-rh-champ nom="jours" label="Nombre de jours" type="text" inputmode="decimal" :requis="true"
-                                aide="Par pas de 0,5. Saisir un nombre positif ; pour une correction, +3 ajoute et -3 retire." />
+                                aide="Par pas de 0,5. Virgule ou point acceptés (2,5 ou 2.5). Solde initial : nombre positif ; correction : +3 ajoute, -3 retire." />
                     <x-rh-champ nom="reference_piece" label="Document officiel (référence)" :requis="false"
                                 aide="Obligatoire pour un solde initial, un report et une correction. Ex. décision n° 12/2025, registre des congés." />
                     <x-rh-champ nom="motif" label="Motif" :requis="true" classe="grille-form__large" aide="Expliquez la raison en une phrase." />

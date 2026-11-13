@@ -1,0 +1,2 @@
+// A AJOUTER dans routes/console.php (facultatif) : controle de coherence du registre chaque nuit.
+Schedule::command('conges:reconcilier')->dailyAt('02:00');

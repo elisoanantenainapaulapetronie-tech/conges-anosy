@@ -14,6 +14,7 @@ use App\Services\DecompteService;
 use App\Services\ImputationService;
 use App\Services\NotificationService;
 use App\Services\SoldeService;
+use App\Support\NombreSaisi;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -132,6 +133,9 @@ class SoldeRhController extends Controller
         $moi = $request->user()->agent;
 
         $natures = $this->naturesPermises($moi);
+        // « 2,5 », « 2.5 », « -1,5 » : on convertit AVANT de valider (la règle « numeric » refuse la virgule).
+        $lu = NombreSaisi::normaliser($request->input('jours'));
+        $request->merge(['jours' => $lu ?? $request->input('jours')]);
         $donnees = $request->validate([
             'annee' => ['required', 'integer', 'min:2000', 'max:'.((int) date('Y') + 1)],
             'nature' => ['required', 'in:'.implode(',', array_keys($natures))],
@@ -139,14 +143,14 @@ class SoldeRhController extends Controller
             'motif' => ['required', 'string', 'max:500'],
             'reference_piece' => ['nullable', 'string', 'max:190'],
         ], [
-            'nature.in' => 'Ce type de mouvement est réservé à la RH responsable.',
+            'nature.in' => 'Ce type de mouvement n’est pas proposé : choisissez « Solde initial » ou « Correction ».',
             'jours.required' => 'Indiquez le nombre de jours.',
-            'jours.numeric' => 'Le nombre de jours doit être un nombre (ex. 2,5).',
+            'jours.numeric' => 'Le nombre de jours doit être un nombre (ex. 2,5 ou -1,5).',
             'motif.required' => 'Expliquez le motif du mouvement.',
         ]);
 
         try {
-            $id = SoldeService::proposer($moi, $agent, (int) $donnees['annee'], $donnees['nature'], (float) str_replace(',', '.', (string) $donnees['jours']),
+            $id = SoldeService::proposer($moi, $agent, (int) $donnees['annee'], $donnees['nature'], (float) $donnees['jours'],
                 $donnees['motif'], $donnees['reference_piece'] ?? null);
         } catch (SoldeException $e) {
             return back()->withInput()->withErrors(['mouvement' => $e->getMessage()]);
@@ -161,8 +165,11 @@ class SoldeRhController extends Controller
     /** File des propositions à contrôler : chacun ne voit les boutons que pour celles qu'il a le droit de contrôler. */
     public function propositions(Request $request)
     {
-        $this->autoriser('voirListe', Agent::class);
         $moi = $request->user()->agent;
+        if (! $moi->aLeRole('rh_gestionnaire', 'rh_responsable', 'secretaire_general', 'chef_region')) {
+            AuditService::refus('acces_refuse_file_controle', $moi, []);
+            abort(403);
+        }
         $politique = app(SoldePolicy::class);
 
         $liste = SoldeService::propositionsEnAttente()->map(function ($p) use ($politique, $moi) {
@@ -178,7 +185,7 @@ class SoldeRhController extends Controller
             return $p;
         });
 
-        return view('rh.soldes.propositions', ['propositions' => $liste, 'natures' => SoldeService::NATURES, 'moi' => $moi]);
+        return view('rh.soldes.propositions', ['propositions' => $liste, 'natures' => SoldeService::NATURES, 'moi' => $moi, 'estRh' => $moi->aLeRole('rh_gestionnaire', 'rh_responsable')]);
     }
 
     public function controler(Request $request, int $proposition): RedirectResponse
@@ -210,6 +217,14 @@ class SoldeRhController extends Controller
             $valide ? 'Mouvement de solde validé' : 'Mouvement de solde rejeté',
             ($valide ? 'Votre proposition a été validée et inscrite au registre.' : 'Votre proposition a été rejetée : '.($donnees['commentaire'] ?? '')),
             ['lien' => route('rh.soldes.show', $modele->agent_id)]);
+
+        // Transparence : l'agent concerné est prévenu quand son solde change (sauf s'il vient déjà d'être notifié comme auteur).
+        if ($valide && (int) $modele->agent_id !== (int) $modele->propose_par) {
+            app(NotificationService::class)->notifier((int) $modele->agent_id, 'solde_modifie',
+                'Votre solde de congés a été modifié',
+                'Un mouvement a été inscrit à votre registre ('.($modele->motif ?: 'voir « Mon solde »').'). Consultez « Mon solde » pour le détail.',
+                ['lien' => route('solde')]);
+        }
 
         return back()->with('statut', $valide ? 'Proposition validée : le mouvement est inscrit au registre.' : 'Proposition rejetée.');
     }
@@ -249,16 +264,15 @@ class SoldeRhController extends Controller
     }
 
     /** Types de mouvement que cette personne peut proposer. */
+    /**
+     * Mouvements que l'on peut PROPOSER depuis l'écran (lot 5 quater) : solde initial et correction.
+     * Le report est devenu un solde initial de l'année d'origine ; la perte est une correction négative ;
+     * l'indemnisation sera une régularisation dans le parcours de sortie d'un agent.
+     * (SoldeService accepte toujours les anciennes natures : les mouvements déjà inscrits restent lisibles.)
+     */
     private function naturesPermises(Agent $moi): array
     {
-        $natures = SoldeService::NATURES;
-        if (! $moi->aLeRole('rh_responsable')) {
-            foreach (SoldeService::NATURES_RH_RESPONSABLE as $n) {
-                unset($natures[$n]);
-            }
-        }
-
-        return $natures;
+        return array_intersect_key(SoldeService::NATURES, array_flip(['solde_initial', 'correction']));
     }
 
     /** Prévient ceux qui peuvent contrôler (hors l'auteur et la personne concernée). */

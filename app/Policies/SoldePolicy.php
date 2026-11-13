@@ -37,7 +37,11 @@ class SoldePolicy
             ->exists();
     }
 
-    /** Proposer un solde initial, une correction, un report... pour $cible. */
+    /**
+     * Proposer un solde initial ou une correction pour $cible (lot 5 quater).
+     * Principe : le GESTIONNAIRE propose, le RESPONSABLE (ou l'autorité du niveau concerné) valide.
+     * Exception : le solde d'un agent RH est proposé par l'AUTRE profil RH et validé par le Secrétaire Général.
+     */
     public function proposer(Compte $compte, Agent $cible): bool
     {
         $moi = $this->moi($compte);
@@ -47,13 +51,13 @@ class SoldePolicy
         }
 
         if ($cible->aLeRole('rh_responsable')) {
-            return $moi->aLeRole('rh_gestionnaire');          // Chef du service RH : un RH gestionnaire désigné
+            return $moi->aLeRole('rh_gestionnaire');          // le gestionnaire propose pour le responsable RH
         }
-        if ($this->estResponsable($cible)) {
-            return $moi->aLeRole('rh_responsable');           // Directeurs, SG, Chef, Directeur de cabinet
+        if ($cible->aLeRole('rh_gestionnaire')) {
+            return $moi->aLeRole('rh_responsable');           // le responsable propose pour un gestionnaire
         }
 
-        return true;                                          // agent ordinaire ou agent RH : un autre agent RH
+        return $moi->aLeRole('rh_gestionnaire');              // tous les autres : le gestionnaire
     }
 
     /** Contre-valider une proposition (ni l'auteur, ni la personne concernée). */
@@ -89,7 +93,7 @@ class SoldePolicy
             return 'chef_region';
         }
         if ($cible->aLeRole('rh_responsable')) {
-            return 'directeur_affaires_generales';
+            return 'secretaire_general';                      // lot 5 quater : le SG valide les soldes des agents RH
         }
         if ($cible->fonction?->libelle === 'Directeur de cabinet') {
             return 'chef_region';
@@ -98,10 +102,10 @@ class SoldePolicy
             return 'secretaire_general';
         }
         if ($cible->aLeRole('rh_gestionnaire')) {
-            return 'rh_responsable';                          // agent RH : un autre agent RH, puis la RH responsable
+            return 'secretaire_general';                      // lot 5 quater : le SG valide les soldes des agents RH
         }
 
-        return 'rh';                                          // agent ordinaire : un autre agent RH
+        return 'rh_responsable';                              // agent ordinaire : la RH responsable valide
     }
 
     private function estDirecteurAffairesGenerales(Agent $a): bool

@@ -3,10 +3,10 @@
 @section('contenu')
     <header class="entete">
         <h1>Propositions de solde à contrôler</h1>
-        <p class="poste">Personne ne contrôle son propre solde ni sa propre proposition. Valider inscrit le mouvement au registre ; rejeter ne change rien.</p>
+        <p class="poste">Le gestionnaire propose, le responsable valide. Personne ne contrôle son propre solde ni sa propre proposition. Valider inscrit le mouvement au registre et le solde est mis à jour aussitôt ; rejeter ne change rien.</p>
     </header>
 
-    @include('rh._onglets', ['actif' => 'soldes'])
+    @if ($estRh ?? true) @include('rh._onglets', ['actif' => 'controle']) @endif
     <link rel="stylesheet" href="{{ asset('css/solde.css') }}">
 
     @forelse ($propositions as $p)
@@ -21,6 +21,7 @@
                 <div><dt>Proposé par</dt><dd>{{ trim($p->auteur_prenoms.' '.mb_strtoupper($p->auteur_nom)) }}, le {{ \Carbon\Carbon::parse($p->created_at)->format('d/m/Y') }}</dd></div>
                 <div><dt>Motif</dt><dd>{{ $p->motif }}</dd></div>
                 @if ($p->reference_piece) <div><dt>Document officiel</dt><dd>{{ $p->reference_piece }}</dd></div> @endif
+                <div><dt>Effet attendu</dt><dd>{{ $p->jours > 0 ? '+' : '−' }}{{ \App\Services\DecompteService::libelle(abs((float) $p->jours)) }} sur le solde {{ $p->annee }}</dd></div>
                 <div><dt>À contrôler par</dt><dd>{{ $p->controleur_attendu }}</dd></div>
             </dl>
 

@@ -54,6 +54,10 @@
                         </a>
                     </li>
                 @endif
+                 @if (auth()->user()->agent->aLeRole('secretaire_general', 'chef_region') && ! auth()->user()->agent->aLeRole('rh_gestionnaire', 'rh_responsable'))
+          <li><a href="{{ route('rh.soldes.propositions') }}" @if (request()->routeIs('rh.soldes.propositions')) aria-current="page" @endif>Soldes à contrôler</a></li>
+      @endif
+
             </ul>
         </nav>
 

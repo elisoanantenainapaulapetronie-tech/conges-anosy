@@ -18,9 +18,7 @@ Route::middleware('auth')->group(function () {
 // Espace RH : chaque action vérifie en plus son droit précis (SoldePolicy).
 Route::middleware(['auth', 'role:rh_gestionnaire,rh_responsable'])->prefix('rh')->name('rh.')->group(function () {
     Route::get('/soldes', [SoldeRhController::class, 'index'])->name('soldes.index');
-    Route::get('/soldes/propositions', [SoldeRhController::class, 'propositions'])->name('soldes.propositions');
     Route::post('/soldes/crediter', [SoldeRhController::class, 'crediter'])->name('soldes.crediter');
-    Route::post('/soldes/propositions/{proposition}/controler', [SoldeRhController::class, 'controler'])->whereNumber('proposition')->name('soldes.controler');
     Route::get('/soldes/{agent}', [SoldeRhController::class, 'show'])->whereNumber('agent')->name('soldes.show');
     Route::post('/soldes/{agent}/proposer', [SoldeRhController::class, 'proposer'])->whereNumber('agent')->name('soldes.proposer');
 
@@ -28,4 +26,11 @@ Route::middleware(['auth', 'role:rh_gestionnaire,rh_responsable'])->prefix('rh')
     Route::post('/jours-feries', [JourFerieController::class, 'store'])->name('jours-feries.store');
     Route::post('/jours-feries/remplir', [JourFerieController::class, 'remplir'])->name('jours-feries.remplir');
     Route::delete('/jours-feries/{jour}', [JourFerieController::class, 'destroy'])->whereNumber('jour')->name('jours-feries.destroy');
+});
+
+// File de contrôle (lot 5 quater) : ouverte aussi au Secrétaire Général et au Chef de Région, qui valident les soldes
+// des agents RH et des hauts responsables. Chaque proposition reste soumise à SoldePolicy::controler.
+Route::middleware(['auth', 'role:rh_gestionnaire,rh_responsable,secretaire_general,chef_region'])->prefix('rh')->name('rh.')->group(function () {
+    Route::get('/soldes/propositions', [SoldeRhController::class, 'propositions'])->name('soldes.propositions');
+    Route::post('/soldes/propositions/{proposition}/controler', [SoldeRhController::class, 'controler'])->whereNumber('proposition')->name('soldes.controler');
 });
