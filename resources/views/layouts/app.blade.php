@@ -8,6 +8,8 @@
     @include('partials.polices')
     <link rel="stylesheet" href="{{ asset('css/anosy.css') }}">
     <link rel="stylesheet" href="{{ asset('css/identite.css') }}">
+     <link rel="stylesheet" href="{{ asset('css/notifications.css') }}">
+
     {{-- Vue de Fort-Dauphin du bandeau d'en-tête : déclarée ici, une seule fois, pour tous les espaces --}}
     <style>:root{--img-region:url('{{ asset('images/fort-dauphin-bandeau.jpg') }}')}</style>
 </head>
@@ -69,6 +71,8 @@
         <header class="barre">
             <button type="button" class="barre__menu" aria-controls="menu" aria-expanded="false">Menu</button>
             <div class="barre__utilisateur">
+                 <x-cloche />
+
                 <div class="barre__nom">
                     <strong>{{ $moi->nom_complet }}</strong>
                     <span>{{ $moi->fonction?->libelle ?? $moi->identifiant }}</span>
@@ -85,6 +89,8 @@
 
         <main id="contenu" class="contenu">
             @if (session('statut')) <div class="alerte alerte--ok" role="status">{{ session('statut') }}</div> @endif
+             @if (session('avertissement')) <div class="alerte alerte--info" role="status">{{ session('avertissement') }}</div> @endif
+
             @yield('contenu')
         </main>
     </div>
