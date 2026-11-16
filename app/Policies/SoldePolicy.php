@@ -83,6 +83,24 @@ class SoldePolicy
         };
     }
 
+    /** Retirer une proposition : son AUTEUR seulement, et tant qu'elle n'est pas contrôlée. */
+    public function retirer(Compte $compte, SoldeProposition $p): bool
+    {
+        return $p->statut === 'en_attente' && (int) $p->propose_par === (int) $this->moi($compte)->id;
+    }
+
+    /**
+     * Lire un justificatif : la RH, le Secrétaire Général et le Chef de Région (qui contrôlent). Pas la personne
+     * concernée ni les autres agents : la pièce peut contenir des informations sur d'autres personnes.
+     */
+    public function lireJustificatif(Compte $compte, SoldeProposition $p): bool
+    {
+        $moi = $this->moi($compte);
+
+        return (int) $p->agent_id !== (int) $moi->id
+            && $moi->aLeRole('rh_gestionnaire', 'rh_responsable', 'secretaire_general', 'chef_region');
+    }
+
     /** Qui doit contre-valider un mouvement concernant $cible (utile aussi pour l'affichage). */
     public function controleurAttendu(Agent $cible): string
     {

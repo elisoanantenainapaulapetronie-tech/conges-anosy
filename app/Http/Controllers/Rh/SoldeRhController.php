@@ -12,16 +12,19 @@ use App\Services\AuditService;
 use App\Services\AcquisitionService;
 use App\Services\DecompteService;
 use App\Services\ImputationService;
-use App\Services\NotificationService;
+use App\Services\SoldeJustificatifService;
+use App\Services\SoldeNotifications;
 use App\Services\SoldeService;
 use App\Support\NombreSaisi;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 
 /**
- * Soldes côté RH : liste, fiche d'un agent (registre), propositions de mouvement et contre-validation, droit annuel.
+ * Soldes côté RH : liste, fiche d'un agent (registre), propositions de mouvement (avec justificatif), contre-validation,
+ * retrait d'une proposition, historique des corrections, acquisition mensuelle.
  * Les droits viennent de SoldePolicy (« personne n'écrit ni ne contrôle son propre solde »).
  */
 class SoldeRhController extends Controller
@@ -117,9 +120,10 @@ class SoldeRhController extends Controller
             'situation' => SoldeService::situation($agent->id, $annee),
             'registre' => SoldeService::registre($agent->id, $annee),
             'enAttente' => SoldeService::propositionsEnAttente($agent->id),
-            'historique' => DB::table('soldes_propositions as p')->join('agents as a', 'a.id', '=', 'p.propose_par')
-                ->where('p.agent_id', $agent->id)->where('p.statut', '!=', 'en_attente')->orderByDesc('p.controle_le')->limit(10)
-                ->get(['p.*', 'a.nom as auteur_nom', 'a.prenoms as auteur_prenoms']),
+            'historique' => SoldeService::historique()->where('p.agent_id', $agent->id)->limit(10)->get(),
+            'pieces' => SoldeJustificatifService::parProposition(SoldeService::propositionsEnAttente($agent->id)->pluck('id')
+                ->merge(DB::table('soldes_propositions')->where('agent_id', $agent->id)->where('statut', '!=', 'en_attente')->pluck('id'))),
+            'moiId' => (int) $moi->id,
             'peutProposer' => $peutProposer,
             'lots' => ImputationService::tableau($agent->id),
             'natures' => $this->naturesPermises($moi),
@@ -142,24 +146,39 @@ class SoldeRhController extends Controller
             'jours' => ['required', 'numeric'],
             'motif' => ['required', 'string', 'max:500'],
             'reference_piece' => ['nullable', 'string', 'max:190'],
-        ], [
+        ] + SoldeJustificatifService::regles(true), SoldeJustificatifService::messages() + [
             'nature.in' => 'Ce type de mouvement n’est pas proposé : choisissez « Solde initial » ou « Correction ».',
             'jours.required' => 'Indiquez le nombre de jours.',
             'jours.numeric' => 'Le nombre de jours doit être un nombre (ex. 2,5 ou -1,5).',
             'motif.required' => 'Expliquez le motif du mouvement.',
         ]);
 
+        // Autres propositions déjà en attente sur le même agent et la même année : simple avertissement, pas un blocage.
+        $autres = DB::table('soldes_propositions')->where('agent_id', $agent->id)->where('annee', (int) $donnees['annee'])->where('statut', 'en_attente')->count();
+
         try {
-            $id = SoldeService::proposer($moi, $agent, (int) $donnees['annee'], $donnees['nature'], (float) $donnees['jours'],
-                $donnees['motif'], $donnees['reference_piece'] ?? null);
+            // La proposition ET son justificatif sont enregistrés ensemble : si le fichier échoue, la proposition est annulée.
+            $id = DB::transaction(function () use ($moi, $agent, $donnees, $request) {
+                $id = SoldeService::proposer($moi, $agent, (int) $donnees['annee'], $donnees['nature'], (float) $donnees['jours'],
+                    $donnees['motif'], $donnees['reference_piece'] ?? null);
+                SoldeJustificatifService::attacher($id, $request->file('justificatif'), $moi);
+
+                return $id;
+            });
         } catch (SoldeException $e) {
             return back()->withInput()->withErrors(['mouvement' => $e->getMessage()]);
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->withErrors(['justificatif' => $e->getMessage()]);
         }
 
-        $this->notifierControleurs($agent, $moi, $id);
+        SoldeNotifications::aControler($agent, $moi, $id);
 
-        return redirect()->route('rh.soldes.show', ['agent' => $agent->id, 'annee' => $donnees['annee']])
-            ->with('statut', 'Proposition enregistrée. Le solde ne change qu’après contrôle par '.self::CONTROLEURS[app(SoldePolicy::class)->controleurAttendu($agent)].'.');
+        $retour = redirect()->route('rh.soldes.show', ['agent' => $agent->id, 'annee' => $donnees['annee']])
+            ->with('statut', 'Proposition enregistrée avec son justificatif. Le solde ne change qu’après contrôle par '.self::CONTROLEURS[app(SoldePolicy::class)->controleurAttendu($agent)].'.');
+
+        return $autres > 0
+            ? $retour->with('avertissement', "Attention : {$autres} autre(s) proposition(s) attendent déjà leur contrôle pour cet agent et l’année {$donnees['annee']}. Vérifiez qu’il ne s’agit pas d’un doublon ; vous pouvez retirer l’une d’elles.")
+            : $retour;
     }
 
     /** File des propositions à contrôler : chacun ne voit les boutons que pour celles qu'il a le droit de contrôler. */
@@ -185,7 +204,11 @@ class SoldeRhController extends Controller
             return $p;
         });
 
-        return view('rh.soldes.propositions', ['propositions' => $liste, 'natures' => SoldeService::NATURES, 'moi' => $moi, 'estRh' => $moi->aLeRole('rh_gestionnaire', 'rh_responsable')]);
+        return view('rh.soldes.propositions', [
+            'propositions' => $liste, 'natures' => SoldeService::NATURES, 'moi' => $moi,
+            'estRh' => $moi->aLeRole('rh_gestionnaire', 'rh_responsable'),
+            'pieces' => SoldeJustificatifService::parProposition($liste->pluck('id')),
+        ]);
     }
 
     public function controler(Request $request, int $proposition): RedirectResponse
@@ -213,20 +236,88 @@ class SoldeRhController extends Controller
         }
 
         $valide = $donnees['decision'] === 'valider';
-        app(NotificationService::class)->notifier((int) $modele->propose_par, 'solde_controle',
-            $valide ? 'Mouvement de solde validé' : 'Mouvement de solde rejeté',
-            ($valide ? 'Votre proposition a été validée et inscrite au registre.' : 'Votre proposition a été rejetée : '.($donnees['commentaire'] ?? '')),
-            ['lien' => route('rh.soldes.show', $modele->agent_id)]);
+        $modele->refresh();
+        SoldeNotifications::controlee($modele, $valide, $donnees['commentaire'] ?? null);
 
-        // Transparence : l'agent concerné est prévenu quand son solde change (sauf s'il vient déjà d'être notifié comme auteur).
-        if ($valide && (int) $modele->agent_id !== (int) $modele->propose_par) {
-            app(NotificationService::class)->notifier((int) $modele->agent_id, 'solde_modifie',
-                'Votre solde de congés a été modifié',
-                'Un mouvement a été inscrit à votre registre ('.($modele->motif ?: 'voir « Mon solde »').'). Consultez « Mon solde » pour le détail.',
-                ['lien' => route('solde')]);
+        $resume = (SoldeService::NATURES[$modele->nature] ?? $modele->nature).' '.($modele->jours > 0 ? '+' : '−')
+            .DecompteService::libelle(abs((float) $modele->jours)).' sur '.$modele->annee.' pour '.$cible->nom_complet;
+        $auteur = Agent::find($modele->propose_par);
+
+        if ($valide) {
+            $prevenus = $auteur?->nom_complet.((int) $cible->id !== (int) $modele->propose_par ? ' (auteur) et '.$cible->nom_complet.' (agent concerné)' : ' (auteur)');
+
+            return back()->with('statut', "Validé : {$resume}. Le mouvement est inscrit au registre et le solde est à jour. Notification envoyée à {$prevenus}.");
         }
 
-        return back()->with('statut', $valide ? 'Proposition validée : le mouvement est inscrit au registre.' : 'Proposition rejetée.');
+        return back()->with('statut', "Rejeté : {$resume}. Le solde n’a pas changé. Notification envoyée à ".($auteur?->nom_complet ?? 'l’auteur').' (auteur) avec votre motif.');
+    }
+
+    /** L'auteur retire sa proposition avant qu'elle soit contrôlée (motif obligatoire, date conservée). */
+    public function retirer(Request $request, int $proposition): RedirectResponse
+    {
+        $modele = SoldeProposition::findOrFail($proposition);
+        $this->autoriser('retirer', $modele);
+        $moi = $request->user()->agent;
+
+        $donnees = $request->validate(['motif_retrait' => ['required', 'string', 'min:3', 'max:500']], [
+            'motif_retrait.required' => 'Indiquez pourquoi vous retirez cette proposition.',
+            'motif_retrait.min' => 'Indiquez pourquoi vous retirez cette proposition.',
+        ]);
+
+        try {
+            SoldeService::retirer($moi, (int) $modele->id, $donnees['motif_retrait']);
+        } catch (SoldeException $e) {
+            return back()->with('erreur', $e->getMessage());
+        }
+
+        SoldeNotifications::retiree($modele->refresh(), $moi, $donnees['motif_retrait']);
+
+        return back()->with('statut', 'Proposition retirée : le solde n’a jamais changé. Elle est conservée dans l’historique avec votre motif.');
+    }
+
+    /** Historique des corrections : toutes les propositions déjà traitées (validées, rejetées, retirées). */
+    public function historique(Request $request)
+    {
+        $moi = $request->user()->agent;
+        if (! $moi->aLeRole('rh_gestionnaire', 'rh_responsable', 'secretaire_general', 'chef_region')) {
+            AuditService::refus('acces_refuse_historique_corrections', $moi, []);
+            abort(403);
+        }
+
+        $filtres = [
+            'agent' => (string) $request->query('agent', ''),
+            'annee' => $request->query('annee'),
+            'statut' => (string) $request->query('statut', ''),
+            'nature' => (string) $request->query('nature', ''),
+        ];
+        $liste = SoldeService::historique($filtres)->paginate(25)->withQueryString();
+
+        return view('rh.soldes.historique', [
+            'liste' => $liste, 'filtres' => $filtres, 'natures' => SoldeService::NATURES,
+            'annees' => DB::table('soldes_propositions')->distinct()->orderByDesc('annee')->pluck('annee'),
+            'pieces' => SoldeJustificatifService::parProposition($liste->pluck('id')),
+            'estRh' => $moi->aLeRole('rh_gestionnaire', 'rh_responsable'),
+        ]);
+    }
+
+    /** Sert un justificatif (fichier privé) à une personne autorisée ; chaque consultation est inscrite au journal. */
+    public function justificatif(Request $request, int $piece)
+    {
+        $p = DB::table('pieces_jointes')->where('id', $piece)->whereNotNull('proposition_id')->first();
+        abort_if($p === null, 404);
+        $modele = SoldeProposition::findOrFail($p->proposition_id);
+        $this->autoriser('lireJustificatif', $modele);
+
+        $disque = Storage::disk('local');
+        abort_unless($disque->exists($p->chemin), 404, 'Le fichier est introuvable sur le serveur.');
+
+        AuditService::enregistrer('justificatif_solde_consulte', $modele, null, ['piece_id' => (int) $p->id]);
+
+        return $disque->response($p->chemin, $p->nom_original, [
+            'Content-Type' => $p->mime,
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ], 'inline');
     }
 
     /**
@@ -273,30 +364,5 @@ class SoldeRhController extends Controller
     private function naturesPermises(Agent $moi): array
     {
         return array_intersect_key(SoldeService::NATURES, array_flip(['solde_initial', 'correction']));
-    }
-
-    /** Prévient ceux qui peuvent contrôler (hors l'auteur et la personne concernée). */
-    private function notifierControleurs(Agent $cible, Agent $auteur, int $propositionId): void
-    {
-        $notifs = app(NotificationService::class);
-        $attendu = app(SoldePolicy::class)->controleurAttendu($cible);
-        $codes = match ($attendu) {
-            'rh' => ['rh_gestionnaire', 'rh_responsable'],
-            'rh_responsable', 'autorite_externe' => ['rh_responsable'],
-            'secretaire_general' => ['secretaire_general'],
-            'chef_region' => ['chef_region'],
-            default => null,
-        };
-
-        $destinataires = $codes
-            ? $notifs->agentsAyantRole($codes)
-            : Agent::actifs()->whereHas('structure', fn ($q) => $q->where('code', 'DAG'))->whereHas('fonction', fn ($q) => $q->where('libelle', 'Directeur'))->get();
-
-        $notifs->notifierPlusieurs(
-            $destinataires->reject(fn ($a) => in_array((int) $a->id, [(int) $auteur->id, (int) $cible->id], true)),
-            'solde_a_controler', 'Mouvement de solde à contrôler',
-            'Une proposition de mouvement concerne le solde de '.$cible->nom_complet.'.',
-            ['lien' => route('rh.soldes.propositions')],
-        );
     }
 }

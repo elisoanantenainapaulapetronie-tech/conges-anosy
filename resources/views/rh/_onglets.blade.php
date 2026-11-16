@@ -16,6 +16,7 @@
                 @if ($enAttente > 0) <span class="pastille pastille--attente" aria-label="{{ $enAttente }} en attente">{{ $enAttente }}</span> @endif
             </a>
         </li>
+        <li><a href="{{ route('rh.historique-corrections') }}" @if (($actif ?? '') === 'historique') aria-current="page" @endif>Historique des corrections</a></li>
         <li><a href="{{ route('rh.jours-feries.index') }}" @if (($actif ?? '') === 'jours-feries') aria-current="page" @endif>Jours fériés</a></li>
         <li><a href="{{ route('organigramme') }}" @if (($actif ?? '') === 'organigramme') aria-current="page" @endif>Organigramme</a></li>
     </ul>

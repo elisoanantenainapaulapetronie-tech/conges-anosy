@@ -98,14 +98,14 @@ class Lot5Verifier extends Command
         $this->controle('Agent entré le 1er mars : 10 mois', SoldeService::crediterDroitAnnuel($c->id, 2026) === SoldeService::droitAnnee('2026-03-01', null, 2026));
 
         // Proposition puis contre-validation
-        $id = SoldeService::proposer($b, $a, 2026, 'report', 5, 'Report de 2025', 'Décision de report n° T5');
+        $id = SoldeService::proposer($b, $a, 2026, 'correction', 5, 'Régularisation de 5 jours', 'Décision n° T5');
         $this->controle('Proposition : le registre n\'a pas encore bougé', SoldeService::situation($a->id, 2026)['disponible'] === $droitA);
         $this->refuse('L\'auteur ne contrôle pas sa proposition', fn () => SoldeService::controler($b, $id, true));
         $this->refuse('La personne concernée ne contrôle pas sa proposition', fn () => SoldeService::controler($a, $id, true));
-        $this->refuse('Personne ne propose sur son propre solde', fn () => SoldeService::proposer($a, $a, 2026, 'report', 1, 'Test auto', 'Réf'));
+        $this->refuse('Personne ne propose sur son propre solde', fn () => SoldeService::proposer($a, $a, 2026, 'correction', 1, 'Test auto', 'Réf'));
         $this->refuse('Un rejet exige un commentaire', fn () => SoldeService::controler($d, $id, false, ''));
         SoldeService::controler($d, $id, true);
-        $this->controle('Validation : le report s\'ajoute au solde', SoldeService::situation($a->id, 2026)['disponible'] === $droitA + 5.0);
+        $this->controle('Validation : la correction s\'ajoute au solde', SoldeService::situation($a->id, 2026)['disponible'] === $droitA + 5.0);
         $this->refuse('Une proposition déjà contrôlée ne se rejoue pas', fn () => SoldeService::controler($d, $id, true));
         $this->refuse('Solde initial refusé quand le droit annuel est crédité', fn () => SoldeService::proposer($b, $a, 2026, 'solde_initial', 12, 'Mise en service', 'Registre'));
         $this->refuse('Pas de pas de 0,25 jour', fn () => SoldeService::proposer($b, $a, 2026, 'correction', 1.25, 'Test pas', 'Réf'));

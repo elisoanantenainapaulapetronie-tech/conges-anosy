@@ -36,7 +36,7 @@ class Lot0Verifier extends Command
         $this->controle('Paramètres ajoutés (2)', DB::table('parametres')
             ->whereIn('cle', ['duree_code_activation_jours', 'seuil_alerte_absences_multiples'])->count() === 2);
 
-        $this->info('--- Droits (agents de démonstration) ---');
+       $this->info('--- Droits (agents de démonstration) ---');
         $this->droit('AGT-0231', 'creer', Demande::class, true, 'Hery (agent) peut déposer une demande');
         $this->droit('SG-0001', 'creer', Demande::class, false, 'Le SG ne dépose pas de demande');
         $this->droit('CR-0001', 'creer', Demande::class, false, 'Le Chef de Région ne dépose pas de demande');
@@ -47,8 +47,8 @@ class Lot0Verifier extends Command
         $this->droit('AGT-0050', 'attribuerRole', 'AGT-0050', false, 'Personne ne s\'attribue un rôle à soi-même');
         $this->droit('AGT-0188', 'solde.proposer', 'AGT-0231', true, 'Tahina propose un solde pour Hery');
         $this->droit('AGT-0188', 'solde.proposer', 'AGT-0188', false, 'Personne ne propose son propre solde');
-        $this->droit('AGT-0188', 'solde.proposer', 'AGT-0104', false, 'Solde d\'une cheffe de service : RH responsable seulement');
-        $this->droit('AGT-0050', 'solde.proposer', 'AGT-0104', true, 'Soa propose le solde d\'une cheffe de service');
+        $this->droit('AGT-0188', 'solde.proposer', 'AGT-0104', true, 'Tahina (RH gestionnaire) propose le solde d\'une cheffe de service');
+        $this->droit('AGT-0050', 'solde.proposer', 'AGT-0104', false, 'Soa (RH responsable) valide, elle ne propose pas, pour une cheffe de service');
         $this->droit('AGT-0231', 'solde.voir', 'AGT-0188', false, 'Hery ne voit pas le solde de Tahina');
         $this->droit('AGT-0231', 'solde.voir', 'AGT-0231', true, 'Hery voit son propre solde');
 

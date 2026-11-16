@@ -1,0 +1,2 @@
+// A AJOUTER a la fin de routes/web.php (a cote de la ligne require __DIR__.'/soldes.php';) :
+require __DIR__.'/notifications.php';

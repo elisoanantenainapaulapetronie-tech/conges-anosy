@@ -1,0 +1,24 @@
+/* Centre de notifications (lot 5 quinquies) */
+.cloche{position:relative;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;color:inherit}
+.cloche:hover,.cloche[aria-current="page"]{background:rgba(0,0,0,.07)}
+.cloche svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cloche__compteur{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#B3261E;color:#fff;font-size:.7rem;font-weight:700;line-height:18px;text-align:center}
+.notif{display:flex;gap:1rem;justify-content:space-between;align-items:flex-start;padding:.9rem 0;border-bottom:1px solid rgba(0,0,0,.08)}
+.notif:last-child{border-bottom:0}
+.notif--nonlue{background:var(--or-pale,#FFF6D6);margin:0 -1rem;padding-left:1rem;padding-right:1rem;border-radius:6px}
+.notif__titre{margin:0 0 .25rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+.notif__message{margin:0 0 .25rem}
+.notif__date{margin:0;font-size:.85rem}
+.notif__point{display:inline-block;width:9px;height:9px;border-radius:50%;background:#B3261E}
+.notif__actions{display:flex;gap:.5rem;flex-shrink:0;align-items:center}
+@media (max-width:640px){.notif{flex-direction:column}}
+
+/* Composition d'un lot (partials/solde-situation) */
+.composition{margin:0;display:grid;gap:.35rem}
+.composition>div{display:flex;justify-content:space-between;gap:1rem;padding:.35rem 0;border-bottom:1px dashed rgba(0,0,0,.12)}
+.composition dt{margin:0}
+.composition dd{margin:0;font-weight:600;white-space:nowrap}
+.composition__total{border-bottom:0!important;border-top:2px solid rgba(0,0,0,.25);padding-top:.5rem!important;font-size:1.05rem}
+.retrait{margin:.4rem 0 0}
+.retrait summary{cursor:pointer}
+.historique__agent>ul{margin-top:.25rem}

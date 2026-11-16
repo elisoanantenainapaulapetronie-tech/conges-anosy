@@ -40,7 +40,7 @@ class SoldeService
     public const TYPES = [
         'solde_initial' => 'Solde initial',
         'droit_annuel' => 'Droit annuel',
-        'report' => 'Report',
+        'report' => 'Report (historique)',
         'reservation' => 'Réservation',
         'liberation' => 'Libération',
         'consommation' => 'Consommation',
@@ -68,7 +68,7 @@ class SoldeService
     /**
      * Situation d'un agent pour une année.
      *
-     * @return array{annee:int, acquis:float, report:float, ajustements:float, reserves:float, consommes:float,
+     * @return array{annee:int, acquis:float, initial:float, acquisitions:float, report:float, ajustements:float, reserves:float, consommes:float,
      *               disponible:float, en_attente:float, previsionnel:float, a_des_mouvements:bool}
      */
     public static function situation(int $agentId, int $annee): array
@@ -78,13 +78,14 @@ class SoldeService
             ->groupBy('type_mouvement')
             ->get(['type_mouvement', DB::raw('SUM(delta_disponible) AS d'), DB::raw('SUM(delta_reserve) AS r'), DB::raw('SUM(delta_consomme) AS c')]);
 
-        $acquis = $report = $ajustements = $disponible = $reserves = $consommes = 0.0;
+        $acquis = $initial = $acquisitions = $report = $ajustements = $disponible = $reserves = $consommes = 0.0;
         foreach ($lignes as $l) {
             $disponible += (float) $l->d;
             $reserves += (float) $l->r;
             $consommes += (float) $l->c;
             match ($l->type_mouvement) {
-                'solde_initial', 'droit_annuel' => $acquis += (float) $l->d,
+                'solde_initial' => [$initial += (float) $l->d, $acquis += (float) $l->d],
+                'droit_annuel' => [$acquisitions += (float) $l->d, $acquis += (float) $l->d],
                 'report' => $report += (float) $l->d,
                 'correction', 'indemnisation', 'perte' => $ajustements += (float) $l->d,
                 default => null,
@@ -101,7 +102,10 @@ class SoldeService
 
         return [
             'annee' => $annee,
-            'acquis' => round($acquis, 2), 'report' => round($report, 2), 'ajustements' => round($ajustements, 2),
+            // « acquis » = initial + acquisitions (gardé tel quel pour le reste de l'application) ;
+            // « initial » (solde repris à la mise en service) et « acquisitions » (crédits mensuels) sont affichés séparément.
+            'acquis' => round($acquis, 2), 'initial' => round($initial, 2), 'acquisitions' => round($acquisitions, 2),
+            'report' => round($report, 2), 'ajustements' => round($ajustements, 2),
             'reserves' => round($reserves, 2), 'consommes' => round($consommes, 2),
             'disponible' => round($disponible, 2),
             'en_attente' => round($enAttente, 2),
@@ -190,6 +194,9 @@ class SoldeService
     {
         if (! isset(self::NATURES[$nature])) {
             throw new SoldeException('Nature de mouvement inconnue.');
+        }
+        if ($nature === 'report') {
+            throw new SoldeException('Un report ne crée pas de jours : le reliquat reste dans son lot d’origine. Saisissez un SOLDE INITIAL sur l’année où ces jours ont été acquis.');
         }
         if ((int) $auteur->id === (int) $cible->id) {
             throw new SoldeException('Personne ne propose de mouvement sur son propre solde.');
@@ -285,6 +292,9 @@ class SoldeService
             if (! $p) {
                 throw new SoldeException('Proposition introuvable.');
             }
+            if ($p->statut === 'retiree') {
+                throw new SoldeException('Cette proposition a été retirée par son auteur : elle ne peut plus être contrôlée.');
+            }
             if ($p->statut !== 'en_attente') {
                 throw new SoldeException('Cette proposition a déjà été contrôlée.');
             }
@@ -332,6 +342,73 @@ class SoldeService
 
             return ['statut' => $valide ? 'valide' : 'rejete', 'mouvement_id' => $mouvementId];
         });
+    }
+
+    /**
+     * L'AUTEUR retire sa proposition tant qu'elle n'est pas contrôlée. Le registre n'a jamais bougé : rien à restituer.
+     * Le motif et la date sont conservés. Une proposition déjà validée ou rejetée ne se retire pas (on la corrige par
+     * un nouveau mouvement).
+     *
+     * @throws SoldeException
+     */
+    public static function retirer(Agent $auteur, int $propositionId, string $motif): void
+    {
+        $motif = trim(preg_replace('/\s+/u', ' ', $motif));
+        if (mb_strlen($motif) < 3) {
+            throw new SoldeException('Indiquez pourquoi vous retirez cette proposition.');
+        }
+
+        DB::transaction(function () use ($auteur, $propositionId, $motif) {
+            $p = DB::table('soldes_propositions')->where('id', $propositionId)->lockForUpdate()->first();
+            if (! $p) {
+                throw new SoldeException('Proposition introuvable.');
+            }
+            if ((int) $p->propose_par !== (int) $auteur->id) {
+                throw new SoldeException('Seul l’auteur d’une proposition peut la retirer.');
+            }
+            if ($p->statut !== 'en_attente') {
+                throw new SoldeException('Cette proposition n’est plus en attente : elle ne peut plus être retirée.');
+            }
+
+            DB::table('soldes_propositions')->where('id', $p->id)->update([
+                'statut' => 'retiree', 'retire_le' => now(), 'motif_retrait' => mb_substr($motif, 0, 500), 'updated_at' => now(),
+            ]);
+
+            AuditService::enregistrer('solde_retire', null,
+                ['proposition_id' => (int) $p->id, 'statut' => 'en_attente'],
+                ['proposition_id' => (int) $p->id, 'statut' => 'retiree', 'motif_retrait' => mb_substr($motif, 0, 500)]);
+        });
+    }
+
+    /**
+     * Propositions déjà traitées (validées, rejetées, retirées) : l'HISTORIQUE des corrections. Même table que la file
+     * d'attente : une proposition change de statut, elle n'est jamais copiée ailleurs.
+     *
+     * @param array{agent?:string, annee?:int|string, statut?:string, nature?:string} $filtres
+     */
+    public static function historique(array $filtres = []): \Illuminate\Database\Query\Builder
+    {
+        $statut = $filtres['statut'] ?? '';
+        $recherche = trim((string) ($filtres['agent'] ?? ''));
+
+        return DB::table('soldes_propositions as p')
+            ->join('agents as c', 'c.id', '=', 'p.agent_id')
+            ->join('agents as a', 'a.id', '=', 'p.propose_par')
+            ->leftJoin('agents as k', 'k.id', '=', 'p.controle_par')
+            ->where('p.statut', '!=', 'en_attente')
+            ->when(in_array($statut, ['valide', 'rejete', 'retiree'], true), fn ($q) => $q->where('p.statut', $statut))
+            ->when(! empty($filtres['annee']), fn ($q) => $q->where('p.annee', (int) $filtres['annee']))
+            ->when(isset(self::NATURES[$filtres['nature'] ?? '']), fn ($q) => $q->where('p.nature', $filtres['nature']))
+            ->when($recherche !== '', function ($q) use ($recherche) {
+                $m = '%'.addcslashes($recherche, '%_\\').'%';
+                $q->where(fn ($w) => $w->where('c.nom', 'like', $m)->orWhere('c.prenoms', 'like', $m)->orWhere('c.identifiant', 'like', $m));
+            })
+            ->orderByRaw('COALESCE(p.controle_le, p.retire_le, p.updated_at) DESC')->orderByDesc('p.id')
+            ->select(['p.*',
+                'c.nom as cible_nom', 'c.prenoms as cible_prenoms', 'c.identifiant as cible_identifiant',
+                'a.nom as auteur_nom', 'a.prenoms as auteur_prenoms',
+                'k.nom as controleur_nom', 'k.prenoms as controleur_prenoms',
+                DB::raw('(SELECT COUNT(*) FROM pieces_jointes pj WHERE pj.proposition_id = p.id) AS nb_pieces')]);
     }
 
     // ======================================================================

@@ -15,7 +15,8 @@ use Throwable;
  *   - notification INTERNE obligatoire pour tout compte (table notifications) ;
  *   - E-MAIL si l'agent en a un ;
  *   - SMS pour les messages « importants » si l'agent n'a pas d'e-mail ;
- *   - chaque envoi est tracé par canal dans envois_notifications (envoyé ou échec).
+ *   - chaque envoi est tracé par canal dans envois_notifications (envoyé ou échec) ;
+ *   - depuis le lot 5 quinquies, le lien est conservé (chemin interne) : le centre de notifications (cloche) l'ouvre.
  *
  * Utilisation :
  *   $notifications->notifier($responsable, 'avis_demande', 'Avis demandé',
@@ -43,6 +44,7 @@ class NotificationService
             'type_evenement' => $type,
             'titre' => $titre,
             'message' => $message,
+            'lien' => self::cheminInterne($options['lien'] ?? null),
             'importance' => $importance,
             'demande_id' => $options['demande_id'] ?? null,
             'avis_id' => $options['avis_id'] ?? null,
@@ -102,6 +104,26 @@ class NotificationService
     public function notifierRh(string $type, string $titre, ?string $message = null, array $options = []): void
     {
         $this->notifierPlusieurs($this->agentsAyantRole(['rh_gestionnaire', 'rh_responsable']), $type, $titre, $message, $options);
+    }
+
+    /**
+     * Ne garde du lien que le CHEMIN interne (« /solde », « /rh/soldes/propositions?x=1 ») : le centre de notifications
+     * n'envoie jamais vers un site extérieur, même si un appelant fournit une adresse complète.
+     */
+    public static function cheminInterne(?string $lien): ?string
+    {
+        $lien = $lien === null ? null : trim($lien);
+        if ($lien === null || $lien === '' || str_starts_with($lien, '//') || str_contains($lien, '\\')) {
+            return null;
+        }
+        $parties = parse_url($lien);
+        $chemin = $parties['path'] ?? '';
+        if ($chemin === '' || $chemin[0] !== '/' || str_starts_with($chemin, '//')) {
+            return null;
+        }
+        $chemin = mb_substr($chemin.(isset($parties['query']) ? '?'.$parties['query'] : ''), 0, 255);
+
+        return $chemin;
     }
 
     private function tracer(int $notificationId, string $canal, ?string $adresse, string $statut, ?string $erreur = null): void

@@ -8,7 +8,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
  * php artisan conges:verifier-tout
- * Lance en une fois tous les contrôles automatiques (lots 0 à 5 quater + cohérence du registre) et résume.
+ * Lance en une fois tous les contrôles automatiques (lots 0 à 5 quinquies + cohérence du registre) et résume.
  * Un contrôle absent du projet est signalé « ignoré », jamais en échec. Ne modifie rien durablement
  * (les scénarios des vérificateurs s'annulent d'eux-mêmes).
  * Option --detail : affiche aussi les lignes [OK] de chaque contrôle.
@@ -21,7 +21,7 @@ class VerifierTout extends Command
 
     private const CONTROLES = [
         'lot0:verifier', 'lot1bis:verifier', 'lot3:verifier', 'lot4:verifier',
-        'lot5:verifier', 'lot5ter:verifier', 'lot5quater:verifier', 'conges:reconcilier',
+        'lot5:verifier', 'lot5ter:verifier', 'lot5quater:verifier', 'lot5quinquies:verifier', 'conges:reconcilier',
     ];
 
     public function handle(): int

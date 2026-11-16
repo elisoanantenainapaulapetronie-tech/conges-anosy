@@ -44,16 +44,19 @@ VALUES (1, 3, 4, '2026-12-21', '2026-12-31', 'planifiee', 'Conge de fin d annee'
 
 -- Propositions de solde (controlees par une AUTRE personne que celle qui propose)
 INSERT INTO soldes_propositions (id, agent_id, annee, nature, jours, motif, propose_par, statut, controle_par, controle_le, commentaire_controle) VALUES
- (1, 5, 2026, 'report',     5.00, 'Report 2025 : decision de report jointe', 6, 'valide', 7, '2026-01-03 09:00:00', 'Conforme a la decision'),
+ (1, 5, 2025, 'solde_initial', 5.00, 'Reliquat 2025 : 5 jours non consommes, conserves dans leur lot d origine', 6, 'valide', 7, '2026-01-03 09:00:00', 'Conforme au registre 2025'),
  (2, 5, 2026, 'correction', -3.00, '3 jours pris en 2025 non enregistres',   6, 'valide', 7, '2026-09-03 10:00:00', 'Piece verifiee');
 
--- Registre 2026 de Hery RAKOTOARISOA (exemple du dossier, partie 8.7).
--- Resultat attendu : disponible 27, reserve 0, consomme 5.
+-- Registre de Hery RAKOTOARISOA (exemple du dossier, partie 8.7), mis en conformite au lot 5 quinquies :
+--   * le reliquat de 2025 (5 jours) est un SOLDE INITIAL du lot 2025 (il garde son annee d'origine, pas de "report" sur 2026) ;
+--   * les 5 jours pris en mars 2026 sont debites du lot le plus ancien (2025), puis le lot 2026 est intact.
+-- Resultat attendu, tous lots : disponible 27, reserve 0, consomme 5.
+--   lot 2025 : 5 initial - 5 consommes = 0 ; lot 2026 : 30 - 3 (correction) = 27.
 INSERT INTO soldes_mouvements (agent_id, annee, type_mouvement, delta_disponible, delta_reserve, delta_consomme, proposition_id, motif, auteur_id, created_at) VALUES
  (5, 2026, 'droit_annuel',  30, 0,  0, NULL, 'Droit annuel 2026',                       NULL, '2026-01-01 00:00:00'),
- (5, 2026, 'report',         5, 0,  0, 1,    'Report 2025',                             6,    '2026-01-03 09:00:00'),
- (5, 2026, 'reservation',   -5, 5,  0, NULL, 'Demande DM-2026-0045 (23 au 27 mars)',    NULL, '2026-03-10 08:30:00'),
- (5, 2026, 'consommation',   0, -5, 5, NULL, 'Conge pris (5 jours)',                    NULL, '2026-03-27 18:00:00'),
+ (5, 2025, 'solde_initial',  5, 0,  0, 1,    'Reliquat 2025 conserve dans son lot',     6,    '2026-01-03 09:00:00'),
+ (5, 2025, 'reservation',   -5, 5,  0, NULL, 'Demande DM-2026-0045 (23 au 27 mars)',    NULL, '2026-03-10 08:30:00'),
+ (5, 2025, 'consommation',   0, -5, 5, NULL, 'Conge pris (5 jours)',                    NULL, '2026-03-27 18:00:00'),
  (5, 2026, 'reservation',  -10, 10, 0, NULL, 'Demande DM-2026-0210 (10 jours)',         NULL, '2026-06-15 11:00:00'),
  (5, 2026, 'liberation',    10, -10, 0, NULL, 'Annulation approuvee DM-2026-0210',      NULL, '2026-06-20 14:00:00'),
  (5, 2026, 'correction',    -3, 0,  0, 2,    '3 jours pris en 2025 non enregistres',    6,    '2026-09-03 10:15:00');

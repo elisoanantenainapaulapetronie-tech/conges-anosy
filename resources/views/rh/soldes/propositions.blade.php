@@ -3,7 +3,7 @@
 @section('contenu')
     <header class="entete">
         <h1>Propositions de solde à contrôler</h1>
-        <p class="poste">Le gestionnaire propose, le responsable valide. Personne ne contrôle son propre solde ni sa propre proposition. Valider inscrit le mouvement au registre et le solde est mis à jour aussitôt ; rejeter ne change rien.</p>
+        <p class="poste">Le gestionnaire propose, le responsable valide. Personne ne contrôle son propre solde ni sa propre proposition. Valider inscrit le mouvement au registre et le solde est mis à jour aussitôt ; rejeter ne change rien. Une proposition traitée quitte cette liste et passe dans l’<a href="{{ route('rh.historique-corrections') }}">historique des corrections</a>.</p>
     </header>
 
     @if ($estRh ?? true) @include('rh._onglets', ['actif' => 'controle']) @endif
@@ -20,7 +20,15 @@
                 <div><dt>Agent concerné</dt><dd><a href="{{ route('rh.soldes.show', ['agent' => $p->agent_id, 'annee' => $p->annee]) }}">{{ trim($p->cible_prenoms.' '.mb_strtoupper($p->cible_nom)) }}</a> ({{ $p->cible_identifiant }})</dd></div>
                 <div><dt>Proposé par</dt><dd>{{ trim($p->auteur_prenoms.' '.mb_strtoupper($p->auteur_nom)) }}, le {{ \Carbon\Carbon::parse($p->created_at)->format('d/m/Y') }}</dd></div>
                 <div><dt>Motif</dt><dd>{{ $p->motif }}</dd></div>
-                @if ($p->reference_piece) <div><dt>Document officiel</dt><dd>{{ $p->reference_piece }}</dd></div> @endif
+                @if ($p->reference_piece) <div><dt>Référence du document</dt><dd>{{ $p->reference_piece }}</dd></div> @endif
+                <div><dt>Justificatif</dt><dd>
+                    @php $piecesDe = $pieces[$p->id] ?? []; @endphp
+                    @forelse ($piecesDe as $piece)
+                        <a href="{{ route('rh.soldes.justificatif', $piece->id) }}" target="_blank" rel="noopener">📎 {{ $piece->nom_original }} ({{ \App\Services\SoldeJustificatifService::taille((int) $piece->taille_octets) }})</a>
+                    @empty
+                        <span class="discret">Aucun fichier joint (proposition antérieure au lot 5 quinquies)</span>
+                    @endforelse
+                </dd></div>
                 <div><dt>Effet attendu</dt><dd>{{ $p->jours > 0 ? '+' : '−' }}{{ \App\Services\DecompteService::libelle(abs((float) $p->jours)) }} sur le solde {{ $p->annee }}</dd></div>
                 <div><dt>À contrôler par</dt><dd>{{ $p->controleur_attendu }}</dd></div>
             </dl>
@@ -29,7 +37,7 @@
                 <form method="POST" action="{{ route('rh.soldes.controler', $p->id) }}" data-envoi>
                     @csrf
                     <div class="champ">
-                        <label for="c-{{ $p->id }}">Commentaire <span class="discret">(obligatoire pour rejeter)</span></label>
+                        <label for="c-{{ $p->id }}">Observation <span class="discret">(facultative pour valider, obligatoire pour rejeter)</span></label>
                         <input id="c-{{ $p->id }}" name="commentaire" type="text" maxlength="1000">
                     </div>
                     <div class="actions-formulaire">
@@ -39,6 +47,9 @@
                 </form>
             @else
                 <p class="panneau__note">Vous ne pouvez pas contrôler cette proposition (vous en êtes l’auteur, elle vous concerne, ou son contrôle revient à {{ $p->controleur_attendu }}).</p>
+                @if ((int) $p->propose_par === (int) $moi->id)
+                    @include('rh.soldes._retirer', ['p' => $p])
+                @endif
             @endif
         </section>
     @empty

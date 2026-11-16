@@ -16,7 +16,7 @@
     <div class="tuile tuile--principale {{ $situation['disponible'] <= 0 ? 'tuile--alerte' : '' }}">
         <span class="tuile__chiffre">{{ $nb($situation['disponible']) }}</span>
         <span class="tuile__libelle">Solde disponible (jours)</span>
-        <span class="tuile__detail">Droits + report − réservés − consommés</span>
+        <span class="tuile__detail">Solde initial + acquisitions + corrections − réservés − consommés</span>
     </div>
     <div class="tuile tuile--info">
         <span class="tuile__chiffre">{{ $nb($situation['en_attente']) }}</span>
@@ -40,14 +40,21 @@
     </div>
 </div>
 
-<p class="solde-formule">
-    Lot {{ $annee }} : droits acquis <strong>{{ $nb($situation['acquis']) }}</strong>
-    + report <strong>{{ $nb($situation['report']) }}</strong>
-    @if ($situation['ajustements'] != 0) + ajustements <strong>{{ $signe($situation['ajustements']) }}</strong> @endif
-    − réservés <strong>{{ $nb($situation['reserves']) }}</strong>
-    − consommés <strong>{{ $nb($situation['consommes']) }}</strong>
-    = <strong>{{ $nb($situation['disponible']) }} jours</strong>
-</p>
+<section class="panneau" aria-labelledby="t-composition">
+    <h2 id="t-composition" class="panneau__titre">Composition du lot {{ $annee }}</h2>
+    <p class="panneau__note">Un lot rassemble les jours acquis pendant l’année {{ $annee }}. Il garde son année d’origine, même s’il est consommé plus tard : les lots les plus anciens sont consommés en premier.</p>
+    <dl class="composition">
+        <div><dt>Solde initial <span class="discret">(repris à la mise en service ou reliquat de cette année)</span></dt><dd>{{ $nb($situation['initial']) }}</dd></div>
+        <div><dt>Acquisitions <span class="discret">(2,5 jours par mois)</span></dt><dd>{{ $nb($situation['acquisitions']) }}</dd></div>
+        @if ($situation['report'] != 0)
+            <div><dt>Reports <span class="discret">(ancien mode, conservé pour l’historique)</span></dt><dd>{{ $signe($situation['report']) }}</dd></div>
+        @endif
+        <div><dt>Corrections</dt><dd>{{ $situation['ajustements'] != 0 ? $signe($situation['ajustements']) : '0' }}</dd></div>
+        <div><dt>Jours réservés</dt><dd>− {{ $nb($situation['reserves']) }}</dd></div>
+        <div><dt>Jours consommés</dt><dd>− {{ $nb($situation['consommes']) }}</dd></div>
+        <div class="composition__total"><dt>Disponible dans ce lot</dt><dd>{{ $nb($situation['disponible']) }} jours</dd></div>
+    </dl>
+</section>
 
 <section class="panneau panneau--table" aria-labelledby="t-registre">
     <h2 id="t-registre" class="panneau__titre">Registre des mouvements {{ $annee }}</h2>

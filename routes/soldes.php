@@ -6,7 +6,7 @@ use App\Http\Controllers\SoldeController;
 use Illuminate\Support\Facades\Route;
 
 /*
- * Soldes et décompte (lot 5). Inclus depuis routes/web.php par :  require __DIR__.'/soldes.php';
+ * Soldes et décompte (lot 5), mis à jour au lot 5 quinquies. Inclus depuis routes/web.php par :  require __DIR__.'/soldes.php';
  */
 
 // Tout agent connecté : son propre solde, et la simulation de durée.
@@ -28,9 +28,12 @@ Route::middleware(['auth', 'role:rh_gestionnaire,rh_responsable'])->prefix('rh')
     Route::delete('/jours-feries/{jour}', [JourFerieController::class, 'destroy'])->whereNumber('jour')->name('jours-feries.destroy');
 });
 
-// File de contrôle (lot 5 quater) : ouverte aussi au Secrétaire Général et au Chef de Région, qui valident les soldes
-// des agents RH et des hauts responsables. Chaque proposition reste soumise à SoldePolicy::controler.
+// File de contrôle, historique des corrections et justificatifs : ouverts aussi au Secrétaire Général et au Chef de Région,
+// qui valident les soldes des agents RH et des hauts responsables. Chaque action reste soumise à SoldePolicy.
 Route::middleware(['auth', 'role:rh_gestionnaire,rh_responsable,secretaire_general,chef_region'])->prefix('rh')->name('rh.')->group(function () {
     Route::get('/soldes/propositions', [SoldeRhController::class, 'propositions'])->name('soldes.propositions');
     Route::post('/soldes/propositions/{proposition}/controler', [SoldeRhController::class, 'controler'])->whereNumber('proposition')->name('soldes.controler');
+    Route::post('/soldes/propositions/{proposition}/retirer', [SoldeRhController::class, 'retirer'])->whereNumber('proposition')->name('soldes.retirer');
+    Route::get('/historique-corrections', [SoldeRhController::class, 'historique'])->name('historique-corrections');
+    Route::get('/justificatifs/{piece}', [SoldeRhController::class, 'justificatif'])->whereNumber('piece')->name('soldes.justificatif');
 });
