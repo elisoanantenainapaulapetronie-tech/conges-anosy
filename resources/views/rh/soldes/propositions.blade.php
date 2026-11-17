@@ -16,6 +16,9 @@
                 <span class="{{ $p->jours > 0 ? 'montant--plus' : 'montant--moins' }}">{{ $p->jours > 0 ? '+' : '−' }}{{ \App\Services\DecompteService::libelle(abs((float) $p->jours)) }}</span>
                 sur {{ $p->annee }}
             </h2>
+            @if (($p->memes ?? 0) > 0)
+                <div class="alerte alerte--info" role="status">Attention : {{ $p->memes }} autre(s) proposition(s) attendent aussi leur contrôle pour cet agent et l’année {{ $p->annee }}. Vérifiez qu’il ne s’agit pas d’un doublon.</div>
+            @endif
             <dl class="proposition__infos">
                 <div><dt>Agent concerné</dt><dd><a href="{{ route('rh.soldes.show', ['agent' => $p->agent_id, 'annee' => $p->annee]) }}">{{ trim($p->cible_prenoms.' '.mb_strtoupper($p->cible_nom)) }}</a> ({{ $p->cible_identifiant }})</dd></div>
                 <div><dt>Proposé par</dt><dd>{{ trim($p->auteur_prenoms.' '.mb_strtoupper($p->auteur_nom)) }}, le {{ \Carbon\Carbon::parse($p->created_at)->format('d/m/Y') }}</dd></div>

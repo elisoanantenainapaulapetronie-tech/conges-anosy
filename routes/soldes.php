@@ -21,6 +21,7 @@ Route::middleware(['auth', 'role:rh_gestionnaire,rh_responsable'])->prefix('rh')
     Route::post('/soldes/crediter', [SoldeRhController::class, 'crediter'])->name('soldes.crediter');
     Route::get('/soldes/{agent}', [SoldeRhController::class, 'show'])->whereNumber('agent')->name('soldes.show');
     Route::post('/soldes/{agent}/proposer', [SoldeRhController::class, 'proposer'])->whereNumber('agent')->name('soldes.proposer');
+    Route::post('/soldes/{agent}/reprise', [SoldeRhController::class, 'reprise'])->whereNumber('agent')->name('soldes.reprise');
 
     Route::get('/jours-feries', [JourFerieController::class, 'index'])->name('jours-feries.index');
     Route::post('/jours-feries', [JourFerieController::class, 'store'])->name('jours-feries.store');

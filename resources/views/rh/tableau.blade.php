@@ -32,6 +32,8 @@
             {{ $chiffres['expires'] }} code(s) d’activation ont expiré : ouvrez la fiche de l’agent pour en générer un nouveau.
         </div>
     @endif
+     @include('rh._valeurs-provisoires')
+
 
     @if ($sansResponsable->isNotEmpty() || $responsableSansRole->isNotEmpty())
         <section class="panneau" aria-labelledby="t-circuit">

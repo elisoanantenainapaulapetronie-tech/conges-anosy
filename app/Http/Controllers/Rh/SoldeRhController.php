@@ -116,7 +116,7 @@ class SoldeRhController extends Controller
         $controleur = app(SoldePolicy::class)->controleurAttendu($agent);
 
         return view('rh.soldes.show', [
-            'agent' => $agent, 'annee' => $annee, 'annees' => $annees,
+            'agent' => $agent, 'annee' => $annee, 'annees' => $annees, 'anneesSaisie' => SoldeService::anneesAcquisition((int) $agent->id),
             'situation' => SoldeService::situation($agent->id, $annee),
             'registre' => SoldeService::registre($agent->id, $annee),
             'enAttente' => SoldeService::propositionsEnAttente($agent->id),
@@ -125,6 +125,7 @@ class SoldeRhController extends Controller
                 ->merge(DB::table('soldes_propositions')->where('agent_id', $agent->id)->where('statut', '!=', 'en_attente')->pluck('id'))),
             'moiId' => (int) $moi->id,
             'peutProposer' => $peutProposer,
+            'repriseOuverte' => ! SoldeService::repriseFermee((int) $agent->id),
             'lots' => ImputationService::tableau($agent->id),
             'natures' => $this->naturesPermises($moi),
             'controleur' => self::CONTROLEURS[$controleur] ?? $controleur,
@@ -141,7 +142,7 @@ class SoldeRhController extends Controller
         $lu = NombreSaisi::normaliser($request->input('jours'));
         $request->merge(['jours' => $lu ?? $request->input('jours')]);
         $donnees = $request->validate([
-            'annee' => ['required', 'integer', 'min:2000', 'max:'.((int) date('Y') + 1)],
+            'annee' => ['required', 'integer', 'min:2000', 'max:'.(int) date('Y')],
             'nature' => ['required', 'in:'.implode(',', array_keys($natures))],
             'jours' => ['required', 'numeric'],
             'motif' => ['required', 'string', 'max:500'],
@@ -181,6 +182,77 @@ class SoldeRhController extends Controller
             : $retour;
     }
 
+    /**
+     * Reprise de l'historique : jours DÉJÀ PRIS avant la mise en service de l'application. Une proposition par lot débité
+     * (le lot est un fait historique, déclaré par l'auteur ; à défaut, un total est réparti du plus ancien au plus récent),
+     * avec le justificatif et la référence du document. Contre-validée comme une correction.
+     */
+    public function reprise(Request $request, Agent $agent): RedirectResponse
+    {
+        $this->autoriser('solde.proposer', $agent);
+        $moi = $request->user()->agent;
+
+        $donnees = $request->validate([
+            'motif' => ['required', 'string', 'max:500'],
+            'reference_piece' => ['required', 'string', 'max:190'],
+            'total' => ['nullable', 'string', 'max:12'],
+            'lots' => ['nullable', 'array', 'max:10'],
+            'lots.*' => ['nullable', 'string', 'max:12'],
+        ] + SoldeJustificatifService::regles(true), SoldeJustificatifService::messages() + [
+            'motif.required' => 'Expliquez le motif de la reprise.',
+            'reference_piece.required' => 'Indiquez la référence du document (registre des congés, décisions).',
+        ]);
+
+        $parAnnee = [];
+        foreach (($donnees['lots'] ?? []) as $annee => $valeur) {
+            $valeur = trim((string) $valeur);
+            if ($valeur === '') {
+                continue;
+            }
+            $n = NombreSaisi::normaliser($valeur);
+            if ($n === null || (float) $n <= 0) {
+                return back()->withInput()->withErrors(['reprise' => "Lot {$annee} : « {$valeur} » n’est pas un nombre de jours valide (ex. 2,5)."]);
+            }
+            $parAnnee[(int) $annee] = (float) $n;
+        }
+        $total = trim((string) ($donnees['total'] ?? ''));
+        $totalLu = $total === '' ? null : NombreSaisi::normaliser($total);
+        if ($total !== '' && $totalLu === null) {
+            return back()->withInput()->withErrors(['reprise' => 'Le total des jours déjà pris doit être un nombre (ex. 12).']);
+        }
+        if ($parAnnee !== [] && $totalLu !== null) {
+            return back()->withInput()->withErrors(['reprise' => 'Remplissez soit les jours par lot, soit un total à répartir, pas les deux.']);
+        }
+
+        try {
+            if ($totalLu !== null) {
+                $parAnnee = SoldeService::repartirReprise((int) $agent->id, (float) $totalLu);
+            }
+            // Toutes les propositions et leur justificatif sont enregistrés ensemble : une erreur annule tout.
+            $ids = DB::transaction(function () use ($moi, $agent, $parAnnee, $donnees, $request) {
+                $ids = SoldeService::proposerReprise($moi, $agent, $parAnnee, $donnees['motif'], $donnees['reference_piece']);
+                foreach ($ids as $id) {
+                    SoldeJustificatifService::attacher($id, $request->file('justificatif'), $moi);
+                }
+
+                return $ids;
+            });
+        } catch (SoldeException $e) {
+            return back()->withInput()->withErrors(['reprise' => $e->getMessage()]);
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->withErrors(['justificatif' => $e->getMessage()]);
+        }
+
+        foreach ($ids as $id) {
+            SoldeNotifications::aControler($agent, $moi, $id);
+        }
+        ksort($parAnnee);
+        $detail = collect($parAnnee)->map(fn ($j, $a) => DecompteService::libelle((float) $j).' sur le lot '.$a)->implode(', ');
+
+        return redirect()->route('rh.soldes.show', ['agent' => $agent->id, 'annee' => array_key_first($parAnnee)])
+            ->with('statut', 'Reprise de l’historique enregistrée ('.$detail.'). Le solde ne change qu’après contrôle par la RH responsable.');
+    }
+
     /** File des propositions à contrôler : chacun ne voit les boutons que pour celles qu'il a le droit de contrôler. */
     public function propositions(Request $request)
     {
@@ -203,6 +275,9 @@ class SoldeRhController extends Controller
 
             return $p;
         });
+        // Même agent, même année, plusieurs propositions en attente : signalé sur chacune (doublon possible).
+        $compte = $liste->countBy(fn ($p) => $p->agent_id.'-'.$p->annee);
+        $liste->each(fn ($p) => $p->memes = $compte[$p->agent_id.'-'.$p->annee] - 1);
 
         return view('rh.soldes.propositions', [
             'propositions' => $liste, 'natures' => SoldeService::NATURES, 'moi' => $moi,

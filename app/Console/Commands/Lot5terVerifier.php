@@ -34,7 +34,7 @@ class Lot5terVerifier extends Command
         $index = DB::select("SHOW INDEX FROM soldes_mouvements WHERE Key_name = 'uq_acquisition_mensuelle'");
         $this->controle('Index unique (agent, période) : un seul crédit par mois', count($index) === 2);
         $this->controle('Table demande_imputations', Schema::hasTable('demande_imputations'));
-        foreach (['acquisition_debut_mois', 'anticipation_autorisee', 'solde_insuffisant_mode', 'reliquat_validite_annees'] as $cle) {
+        foreach (['acquisition_debut_mois', 'anticipation_max_jours', 'solde_insuffisant_mode', 'reliquat_validite_annees'] as $cle) {
             $this->controle("Paramètre {$cle} présent", DB::table('parametres')->where('cle', $cle)->exists());
         }
         $this->controle('Reliquats : aucune expiration (reliquat_validite_annees vide)', (string) DB::table('parametres')->where('cle', 'reliquat_validite_annees')->value('valeur') === '');

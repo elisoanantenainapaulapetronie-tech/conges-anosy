@@ -39,6 +39,8 @@ Route::middleware('auth')->group(function () {
      require __DIR__.'/organigramme.php';
  require __DIR__.'/soldes.php';
  require __DIR__.'/notifications.php';
+require __DIR__.'/continuite.php';
+
 
 
 

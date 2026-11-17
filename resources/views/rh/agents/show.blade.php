@@ -127,6 +127,9 @@
                 @endif
             @endcan
         </div>
+        @include('rh.agents._lien-reinitialisation', ['agent' => $agent, 'compte' => $compte])
+
+
         <p class="panneau__note" style="margin:14px 0 0">La RH ne voit et ne choisit jamais le mot de passe : l’agent le crée lui-même avec le code.</p>
     </section>
 

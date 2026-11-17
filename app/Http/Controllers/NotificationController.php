@@ -34,12 +34,26 @@ class NotificationController extends Controller
             ->when($filtre === 'non_lues', fn ($q) => $q->whereNull('lue_le'))
             ->orderByDesc('created_at')->orderByDesc('id');
 
-        return view('notifications.index', [
+        return response()->view('notifications.index', [
             'notifications' => $requete->paginate(20)->withQueryString(),
             'filtre' => $filtre,
             'nonLues' => (int) DB::table('notifications')->where('destinataire_id', $moi)->whereNull('lue_le')->count(),
             'types' => self::TYPES,
-        ]);
+        ])->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * Compteur léger interrogé par la cloche toutes les quelques secondes (pas besoin d'actualiser la page).
+     * Renvoie le nombre de non lues et l'identifiant de la plus récente : si l'un change, la page se met à jour.
+     */
+    public function compteur(Request $request)
+    {
+        $moi = $request->user()->agent_id;
+
+        return response()->json([
+            'non_lues' => (int) DB::table('notifications')->where('destinataire_id', $moi)->whereNull('lue_le')->count(),
+            'derniere' => (int) DB::table('notifications')->where('destinataire_id', $moi)->max('id'),
+        ])->header('Cache-Control', 'no-store');
     }
 
     /** Marque la notification comme lue, puis ouvre la page liée (chemin interne uniquement). */

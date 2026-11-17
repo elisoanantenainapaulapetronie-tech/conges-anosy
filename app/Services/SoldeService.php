@@ -34,6 +34,7 @@ class SoldeService
         'report' => 'Report',
         'indemnisation' => 'Indemnisation',
         'perte' => 'Perte',
+        'reprise_historique' => 'Reprise de l’historique',
     ];
 
     /** Tous les types du registre, pour l'affichage. */
@@ -53,7 +54,7 @@ class SoldeService
     public const NATURES_RH_RESPONSABLE = ['report', 'indemnisation', 'perte'];
 
     /** Ces mouvements doivent citer le document officiel qui les justifie. */
-    public const NATURES_AVEC_REFERENCE = ['solde_initial', 'report', 'correction'];
+    public const NATURES_AVEC_REFERENCE = ['solde_initial', 'report', 'correction', 'reprise_historique'];
 
     /** Demandes dont les jours attendent encore une décision (comme la vue v_soldes_agents). */
     public const STATUTS_EN_ATTENTE = ['soumise', 'en_controle_rh', 'a_completer', 'en_attente_decision'];
@@ -153,6 +154,26 @@ class SoldeService
         return $sortie;
     }
 
+    /**
+     * Années d'ACQUISITION proposées pour saisir un solde initial / une correction / une reprise : de l'année d'entrée de l'agent
+     * (au plus tôt 2000) jusqu'à l'année en cours, plus les années qui ont déjà des mouvements. Sans cela, un agent sans mouvement
+     * n'aurait que l'année en cours et on ne pourrait pas saisir ses jours restants de 2024 ou 2025.
+     */
+    public static function anneesAcquisition(int $agentId): array
+    {
+        $courante = (int) date('Y');
+        $entree = DB::table('agents')->where('id', $agentId)->value('date_entree');
+        $debut = $entree ? max(2000, (int) substr((string) $entree, 0, 4)) : $courante - 5;
+        $annees = range($debut, $courante);
+        foreach (DB::table('soldes_mouvements')->where('agent_id', $agentId)->distinct()->pluck('annee') as $a) {
+            $annees[] = (int) $a;
+        }
+        $annees = array_values(array_unique($annees));
+        rsort($annees);
+
+        return $annees;
+    }
+
     /** Années à proposer dans un sélecteur : celles qui ont des mouvements, l'année en cours et la suivante. */
     public static function annees(int $agentId): array
     {
@@ -223,12 +244,16 @@ class SoldeService
         if (in_array($nature, ['solde_initial', 'report'], true) && $jours < 0) {
             throw new SoldeException('Un '.mb_strtolower(self::NATURES[$nature]).' est un nombre positif de jours.');
         }
-        if (in_array($nature, ['indemnisation', 'perte'], true)) {
+        if (in_array($nature, ['indemnisation', 'perte', 'reprise_historique'], true)) {
             $jours = -abs($jours);
         }
 
         return DB::transaction(function () use ($auteur, $cible, $annee, $nature, $jours, $motif, $reference) {
             DB::table('agents')->where('id', $cible->id)->lockForUpdate()->first();  // une proposition à la fois par agent
+
+            if ($nature === 'reprise_historique' && self::repriseFermee((int) $cible->id)) {
+                throw new SoldeException('La reprise de l’historique est fermée pour cet agent : l’application gère déjà ses congés (une demande a été réservée). Utilisez une correction ordinaire.');
+            }
 
             if ($nature === 'solde_initial') {
                 $existe = DB::table('soldes_mouvements')->where('agent_id', $cible->id)->where('annee', $annee)->where('type_mouvement', 'solde_initial')->exists()
@@ -244,7 +269,8 @@ class SoldeService
             if ($jours < 0 && $nature !== 'correction') {
                 $disponible = self::situation((int) $cible->id, $annee)['disponible'];
                 if ($disponible + $jours < 0) {
-                    throw new SoldeException('Le solde disponible ('.DecompteService::libelle($disponible).") ne permet pas de retirer ".DecompteService::libelle(abs($jours)).'.');
+                    throw new SoldeException('Le solde disponible du lot '.$annee.' ('.DecompteService::libelle($disponible).") ne permet pas de retirer ".DecompteService::libelle(abs($jours)).'.'
+                        .($nature === 'reprise_historique' ? ' Le lot doit d’abord être crédité (solde initial ou acquisition mensuelle).' : ''));
                 }
             }
 
@@ -267,10 +293,75 @@ class SoldeService
         });
     }
 
-    /** Qui doit contre-valider, et à quel niveau, en plus de SoldePolicy : la correction est contre-validée par la RH responsable. */
+    /**
+     * La reprise de l'historique n'a de sens qu'AVANT que l'application gère les congés de l'agent : dès qu'un mouvement
+     * est lié à une demande (réservation, libération, consommation), elle est fermée et toute rectification passe par
+     * une correction ordinaire. (Aucune date de plus à gérer : on s'appuie sur le registre.)
+     */
+    public static function repriseFermee(int $agentId): bool
+    {
+        return DB::table('soldes_mouvements')->where('agent_id', $agentId)->whereNotNull('demande_id')->exists();
+    }
+
+    /**
+     * Répartit un total de jours déjà pris entre les lots, du plus ancien au plus récent (règle FIFO), dans la limite du
+     * disponible de chaque lot. C'est une SUGGESTION : l'auteur peut aussi déclarer lui-même les lots.
+     *
+     * @return array<int,float> année => jours
+     * @throws SoldeException
+     */
+    public static function repartirReprise(int $agentId, float $total): array
+    {
+        if ($total <= 0 || fmod($total * 2, 1.0) > 1e-9) {
+            throw new SoldeException('Le total des jours déjà pris doit être positif, par pas d’une demi-journée (0,5).');
+        }
+        $reste = round($total, 2);
+        $parAnnee = [];
+        foreach (ImputationService::lots($agentId) as $annee => $disponible) {
+            if ($reste <= 0) {
+                break;
+            }
+            $prend = min($reste, max(0.0, (float) $disponible));
+            if ($prend > 0) {
+                $parAnnee[(int) $annee] = round($prend, 2);
+                $reste = round($reste - $prend, 2);
+            }
+        }
+        if ($reste > 0) {
+            throw new SoldeException('Les lots de cet agent ne couvrent pas '.DecompteService::libelle($total).' : il manque '.DecompteService::libelle($reste).'. Créditez d’abord les lots concernés (solde initial, acquisition mensuelle).');
+        }
+
+        return $parAnnee;
+    }
+
+    /**
+     * Propose la reprise de l'historique d'un agent : une proposition PAR LOT (année) débité. À appeler dans une transaction
+     * (tout ou rien).
+     *
+     * @param array<int,float> $parAnnee année du lot => jours déjà pris
+     * @return int[] identifiants des propositions
+     * @throws SoldeException
+     */
+    public static function proposerReprise(Agent $auteur, Agent $cible, array $parAnnee, string $motif, string $reference): array
+    {
+        $parAnnee = array_filter($parAnnee, fn ($j) => (float) $j > 0);
+        if ($parAnnee === []) {
+            throw new SoldeException('Indiquez les jours déjà pris : par lot, ou un total à répartir.');
+        }
+        ksort($parAnnee);
+
+        $ids = [];
+        foreach ($parAnnee as $annee => $jours) {
+            $ids[] = self::proposer($auteur, $cible, (int) $annee, 'reprise_historique', (float) $jours, $motif, $reference);
+        }
+
+        return $ids;
+    }
+
+    /** Qui doit contre-valider, et à quel niveau, en plus de SoldePolicy : la correction et la reprise de l'historique sont contre-validées par la RH responsable. */
     public static function niveauSupplementaire(string $nature, string $controleurAttendu): ?string
     {
-        return ($nature === 'correction' && $controleurAttendu === 'rh') ? 'rh_responsable' : null;
+        return (in_array($nature, ['correction', 'reprise_historique'], true) && $controleurAttendu === 'rh') ? 'rh_responsable' : null;
     }
 
     /**
@@ -316,11 +407,14 @@ class SoldeService
                     throw new SoldeException('Un solde initial ou le droit annuel existe déjà pour cette année : utilisez une correction.');
                 }
 
+                // Reprise de l'historique : des jours DÉJÀ PRIS avant la mise en service. Le lot débité est celui déclaré dans la
+                // proposition (fait historique) ; le mouvement baisse le disponible ET augmente le consommé (type « consommation »).
+                $reprise = $p->nature === 'reprise_historique';
                 $mouvementId = DB::table('soldes_mouvements')->insertGetId([
-                    'agent_id' => $p->agent_id, 'annee' => $p->annee, 'type_mouvement' => $p->nature,
-                    'delta_disponible' => $jours, 'delta_reserve' => 0, 'delta_consomme' => 0,
+                    'agent_id' => $p->agent_id, 'annee' => $p->annee, 'type_mouvement' => $reprise ? 'consommation' : $p->nature,
+                    'delta_disponible' => $jours, 'delta_reserve' => 0, 'delta_consomme' => $reprise ? -$jours : 0,
                     'proposition_id' => $p->id,
-                    'motif' => mb_substr($p->motif.($p->reference_piece ? ' — Réf. '.$p->reference_piece : ''), 0, 255),
+                    'motif' => mb_substr(($reprise ? 'Reprise de l’historique — ' : '').$p->motif.($p->reference_piece ? ' — Réf. '.$p->reference_piece : ''), 0, 255),
                     'auteur_id' => $p->propose_par, 'created_at' => now(),
                 ]);
             }
@@ -332,7 +426,8 @@ class SoldeService
 
             AuditService::enregistrer($valide ? 'solde_valide' : 'solde_rejete', null,
                 ['proposition_id' => (int) $p->id, 'statut' => 'en_attente'],
-                ['proposition_id' => (int) $p->id, 'statut' => $valide ? 'valide' : 'rejete', 'mouvement_id' => $mouvementId, 'jours' => (float) $p->jours]);
+                ['proposition_id' => (int) $p->id, 'statut' => $valide ? 'valide' : 'rejete', 'mouvement_id' => $mouvementId, 'jours' => (float) $p->jours, 'nature' => $p->nature]
+                + ($p->nature === 'reprise_historique' ? ['reprise' => true] : []));
 
             // Les corrections importantes sont signalées à la RH (paramètre alerte_correction_solde_jours).
             if ($valide && $p->nature === 'correction' && abs((float) $p->jours) > Parametres::decimal('alerte_correction_solde_jours', 5)) {

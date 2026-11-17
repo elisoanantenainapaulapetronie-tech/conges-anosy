@@ -1,6 +1,7 @@
 @extends('layouts.app')
 @section('titre', 'Mes notifications')
 @section('contenu')
+    <div id="zone-notifications">
     <header class="entete entete--action">
         <div>
             <h1>Mes notifications</h1>
@@ -49,4 +50,5 @@
     </section>
 
     {{ $notifications->links() }}
+    </div>
 @endsection

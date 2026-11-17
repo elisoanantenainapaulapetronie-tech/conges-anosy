@@ -16,7 +16,7 @@ use InvalidArgumentException;
  *     anciens d'abord) ;
  *  2. un lot ne couvre qu'un jour de son année ou d'une année suivante : le droit 2027 ne couvre jamais un jour de 2026 ;
  *  3. un jour pris est couvert par les jours ACQUIS À LA DATE DE CE JOUR : les mois à venir comptent quand le jour
- *     tombe dans ce mois (acquisition du 1er du mois), jamais avant (sauf paramètre anticipation_autorisee) ;
+ *     tombe dans ce mois (acquisition du 1er du mois), jamais avant (anticipation_max_jours = 0, V1) ;
  *  4. aucun lot ne devient négatif : ce qui n'est pas couvert est un « manque », jamais accepté automatiquement ;
  *  5. la répartition par année civile (affichée) et le débit par lot (écrit au registre) sont deux choses distinctes.
  *
@@ -161,17 +161,14 @@ class ImputationService
         return $jours;
     }
 
-    /** Projections à utiliser pour ces jours (avec le paramètre anticipation_autorisee). */
+    /**
+     * Projections à utiliser pour ces jours. Aucune anticipation en V1 : un jour n'est couvert que par un crédit acquis au plus
+     * tard à sa date. Le paramètre anticipation_max_jours (0 par défaut) réserve la place de l'anticipation limitée (V2).
+     */
     public static function projectionsPour(int $agentId, array $jours, ?int $anneeMax = null): array
     {
         $fin = $jours ? (int) substr((string) end($jours)['date'], 0, 4) : (int) date('Y');
         $projections = AcquisitionService::projections($agentId, max($fin, $anneeMax ?? 0));
-
-        if (Parametres::entier('anticipation_autorisee', 0) === 1) {
-            foreach ($projections as $annee => $periodes) {
-                $projections[$annee] = [sprintf('%04d-01', $annee) => round(array_sum($periodes), 2)];
-            }
-        }
 
         return $projections;
     }
