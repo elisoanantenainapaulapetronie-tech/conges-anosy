@@ -7,8 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\Compte;
 use App\Services\AuditService;
-use App\Services\OrganisationService;
-use App\Services\Parametres;
+use App\Services\CodeActivationService;
+use App\Services\ContinuiteService;
+use App\Services\EnvoiMessage;
+use App\Services\ReinitialisationService;
 use Illuminate\Http\RedirectResponse;
 
 /**
@@ -28,25 +30,12 @@ class CompteController extends Controller
             return back()->with('erreur', 'Seul un agent en situation « actif » peut recevoir un compte.');
         }
 
-        $code = OrganisationService::codeActivation();
-        $jours = Parametres::entier('duree_code_activation_jours', 5);
-        $expire = now()->addDays($jours)->endOfDay();
-
-        $compte = Compte::firstOrNew(['agent_id' => $agent->id]);
-        $nouveau = ! $compte->exists;
-        $avant = $nouveau ? null : ['statut' => $compte->statut];
-
-        $compte->forceFill([
-            'statut' => 'en_attente_activation',
-            'mot_de_passe_hash' => null,
-            'code_activation_hash' => bcrypt($code),
-            'code_activation_expire_le' => $expire,
-            'echecs_connexion' => 0,
-            'bloque_jusqua' => null,
-        ])->save();
+        $emis = CodeActivationService::emettre($agent);
+        $code = $emis['code'];
+        $expire = $emis['expire'];
 
         // Le code lui-même n'est JAMAIS écrit dans le journal : seule son existence l'est.
-        AuditService::enregistrer($nouveau ? 'compte_cree' : 'code_activation_regenere', $agent, $avant,
+        AuditService::enregistrer($emis['nouveau'] ? 'compte_cree' : 'code_activation_regenere', $agent, $emis['avant'],
             ['statut' => 'en_attente_activation', 'expire_le' => $expire->toDateString()]);
 
         return redirect()->route('rh.agents.show', $agent)
@@ -61,6 +50,13 @@ class CompteController extends Controller
         $compte = $agent->compte;
         if (! $compte || $compte->statut !== 'actif') {
             return back()->with('erreur', 'Seul un compte actif peut être désactivé.');
+        }
+
+        // Continuité : on ne désactive pas le dernier compte de RH responsable (personne ne pourrait plus attribuer les rôles).
+        if (ContinuiteService::estLeSeulResponsable((int) $agent->id)) {
+            AuditService::refus('desactivation_refusee_dernier_responsable', $agent, []);
+
+            return back()->with('erreur', 'C’est la seule RH responsable avec un compte actif : attribuez d’abord ce rôle à un autre agent (ou une suppléance), puis désactivez ce compte.');
         }
 
         $compte->forceFill(['statut' => 'desactive'])->save();
@@ -86,5 +82,33 @@ class CompteController extends Controller
         return back()->with('statut', $statut === 'actif'
             ? 'Compte réactivé.'
             : 'Compte réactivé en attente d’activation : générez un nouveau code d’activation.');
+    }
+
+    /**
+     * Lien de réinitialisation remis par la RH (agent actif sans e-mail ni téléphone, ou qui ne reçoit plus ses messages).
+     * Valable 2 heures, à usage unique, affiché une seule fois à la RH ; l'agent est prévenu s'il a un canal. Aucun rôle n'est touché.
+     */
+    public function genererLien(Agent $agent, EnvoiMessage $messages): RedirectResponse
+    {
+        $this->autoriser('genererLienReinitialisation', $agent);
+
+        $compte = $agent->compte;
+        if (! $compte || $compte->statut !== 'actif' || $agent->situation !== 'actif') {
+            return back()->with('erreur', 'Seul un compte actif d’un agent actif peut recevoir un lien de réinitialisation.');
+        }
+
+        $minutes = 120;
+        $jeton = ReinitialisationService::creerJeton($compte, $minutes);
+        $expire = now()->addMinutes($minutes);
+
+        // Le lien lui-même n'est jamais journalisé.
+        AuditService::enregistrer('lien_reinitialisation_remis', $agent, null, ['expire_le' => $expire->format('Y-m-d H:i'), 'remis_par_rh' => true]);
+
+        $messages->envoyer($agent, 'Un lien de réinitialisation a été généré pour votre compte — Congés Anosy',
+            'La RH a généré un lien pour changer votre mot de passe. Si vous ne l’avez pas demandé, prévenez la RH.');
+
+        return redirect()->to(route('rh.agents.show', $agent).'#compte')
+            ->with('lien_reinitialisation', route('reinitialisation', ['jeton' => $jeton]))
+            ->with('lien_expire', $expire->format('d/m/Y à H:i'));
     }
 }

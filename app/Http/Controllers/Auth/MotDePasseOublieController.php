@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\Compte;
 use App\Models\ReinitialisationMotDePasse;
 use App\Services\EnvoiMessage;
+use App\Services\ReinitialisationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +54,7 @@ class MotDePasseOublieController extends Controller
         $compte = $agent?->compte;
 
         if ($compte && $compte->estActif() && $agent->situation === 'actif') {
-            $jeton = $this->creerJeton($compte);
+            $jeton = ReinitialisationService::creerJeton($compte, self::VALIDITE_MINUTES);
             $canal = $messages->envoyer(
                 $agent,
                 'Réinitialisation de votre mot de passe — Congés Anosy',
@@ -155,23 +156,6 @@ class MotDePasseOublieController extends Controller
         );
 
         return redirect()->route('connexion')->with('statut', 'Mot de passe modifié. Connectez-vous avec le nouveau.');
-    }
-
-    /** Crée un jeton à usage unique et renvoie sa valeur en clair ; seule l'empreinte SHA-256 est stockée. */
-    private function creerJeton(Compte $compte): string
-    {
-        // Un seul lien valable à la fois : les précédents sont annulés.
-        ReinitialisationMotDePasse::where('compte_id', $compte->id)->whereNull('utilise_le')
-            ->where('expire_le', '>', now())->update(['expire_le' => now()]);
-
-        $jeton = Str::random(64);
-        ReinitialisationMotDePasse::create([
-            'compte_id' => $compte->id,
-            'jeton_hash' => hash('sha256', $jeton),
-            'expire_le' => now()->addMinutes(self::VALIDITE_MINUTES),
-        ]);
-
-        return $jeton;
     }
 
     private function trouverValide(string $jeton): ?ReinitialisationMotDePasse

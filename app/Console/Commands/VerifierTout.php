@@ -21,7 +21,7 @@ class VerifierTout extends Command
 
     private const CONTROLES = [
         'lot0:verifier', 'lot1bis:verifier', 'lot3:verifier', 'lot4:verifier',
-        'lot5:verifier', 'lot5ter:verifier', 'lot5quater:verifier', 'lot5quinquies:verifier', 'lot5sexies:verifier', 'conges:reconcilier',
+        'lot5:verifier', 'lot5ter:verifier', 'lot5quater:verifier', 'lot5quinquies:verifier', 'lot5sexies:verifier', 'lot6:verifier', 'conges:reconcilier',
     ];
 
     public function handle(): int
