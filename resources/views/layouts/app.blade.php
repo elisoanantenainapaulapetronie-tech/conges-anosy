@@ -46,6 +46,12 @@
                         Mon solde
                     </a>
                 </li>
+                <li>
+                    <a href="{{ route('demandes.index') }}" @if (request()->routeIs('demandes.*')) aria-current="page" @endif>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>
+                       Mes demandes
+                    </a>
+                </li>
                 @if ($moi->aLeRole('rh_gestionnaire', 'rh_responsable'))
                     <li>
                         <a href="{{ route('rh') }}" @if (request()->routeIs('rh', 'rh.*')) aria-current="page" @endif>
